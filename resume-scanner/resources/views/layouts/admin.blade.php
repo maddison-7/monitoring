@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $pageTitle ?? 'Admin Panel' }} - Intelligent Recruitment System</title>
+    <title>{{ $pageTitle ?? __('messages.admin_panel') }} - Intelligent Recruitment System</title>
 
     <script>
         (function () {
@@ -369,25 +369,25 @@
         <div class="flex items-center gap-3">
             <div class="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-700 to-indigo-700 text-white font-bold flex items-center justify-center">IR</div>
             <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-white/70">Admin Panel</p>
+                <p class="text-xs uppercase tracking-[0.18em] text-white/70">{{ __('messages.admin_panel') }}</p>
                 <h1 class="font-bold text-white leading-tight">Intelligent Recruitment System</h1>
             </div>
         </div>
     </div>
 
     <nav class="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
-        <p class="px-3 mb-2 text-[.66rem] uppercase tracking-widest text-white/60 font-semibold">Admin Panel</p>
-        <a href="{{ route('panel.admin') }}" class="admin-link {{ $active === 'dashboard' ? 'active' : '' }}">Dashboard</a>
-        <a href="{{ route('admin.recruiters') }}" class="admin-link {{ $active === 'admin.recruiters' ? 'active' : '' }}">User Management</a>
-        <a href="{{ route('admin.governance') }}" class="admin-link {{ $active === 'admin.governance' ? 'active' : '' }}">Governance</a>
-        <a href="{{ route('admin.jobs') }}" class="admin-link {{ $active === 'admin.jobs' ? 'active' : '' }}">Organization Management</a>
-        <a href="{{ route('admin.analytics') }}" class="admin-link {{ $active === 'admin.analytics' ? 'active' : '' }}">Recruitment Analytics</a>
-        <a href="{{ route('admin.audit') }}" class="admin-link {{ $active === 'admin.audit' ? 'active' : '' }}">Security & Access</a>
-        <a href="{{ route('admin.reports') }}" class="admin-link {{ $active === 'admin.reports' ? 'active' : '' }}">Reports</a>
-        <a href="{{ route('admin.system') }}" class="admin-link {{ $active === 'admin.system' ? 'active' : '' }}">System Settings</a>
-        <a href="{{ route('settings') }}" class="admin-link">Settings</a>
+        <p class="px-3 mb-2 text-[.66rem] uppercase tracking-widest text-white/60 font-semibold">{{ __('messages.admin_panel') }}</p>
+        <a href="{{ route('panel.admin') }}" class="admin-link {{ $active === 'dashboard' ? 'active' : '' }}">{{ __('messages.dashboard') }}</a>
+        <a href="{{ route('admin.recruiters') }}" class="admin-link {{ $active === 'admin.recruiters' ? 'active' : '' }}">{{ __('messages.user_management') }}</a>
+        <a href="{{ route('admin.governance') }}" class="admin-link {{ $active === 'admin.governance' ? 'active' : '' }}">{{ __('messages.governance') }}</a>
+        <a href="{{ route('admin.jobs') }}" class="admin-link {{ $active === 'admin.jobs' ? 'active' : '' }}">{{ __('messages.organization_management') }}</a>
+        <a href="{{ route('admin.analytics') }}" class="admin-link {{ $active === 'admin.analytics' ? 'active' : '' }}">{{ __('messages.recruitment_analytics') }}</a>
+        <a href="{{ route('admin.audit') }}" class="admin-link {{ $active === 'admin.audit' ? 'active' : '' }}">{{ __('messages.audit') }}</a>
+        <a href="{{ route('admin.reports') }}" class="admin-link {{ $active === 'admin.reports' ? 'active' : '' }}">{{ __('messages.reports') }}</a>
+        <a href="{{ route('admin.system') }}" class="admin-link {{ $active === 'admin.system' ? 'active' : '' }}">{{ __('messages.system_settings') }}</a>
+        <a href="{{ route('settings') }}" class="admin-link">{{ __('messages.settings') }}</a>
         <form method="POST" action="{{ route('logout') }}">@csrf
-            <button type="submit" class="admin-link w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+            <button type="submit" class="admin-link w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">{{ __('messages.logout') }}</button>
         </form>
     </nav>
 
@@ -427,14 +427,16 @@
 
             <div class="hidden md:flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 px-3 py-2 min-w-[20rem]">
                 <svg class="h-4 w-4 text-adminMuted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
-                <input id="adminGlobalSearch" type="text" placeholder="Global search: users, jobs, reports, security..." class="w-full bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-adminMuted" />
+                <input id="adminGlobalSearch" type="text" placeholder="{{ __('messages.global_search_placeholder') }}" class="w-full bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-adminMuted" />
             </div>
 
             <div class="ml-auto flex items-center gap-2">
                 <div class="hidden sm:flex items-center gap-2 rounded-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
                     <span class="status-dot"></span>
-                    System status: {{ $systemStatus }}
+                    {{ __('messages.system_status') }}: {{ $systemStatus }}
                 </div>
+
+                @include('partials.language-switcher')
 
                 <button id="adminThemeBtn" type="button" class="admin-btn h-10 w-10 p-0" aria-label="Toggle theme">
                     <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -466,9 +468,9 @@
                             <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ $user?->email }}</p>
                         </div>
                         <div class="mt-2 space-y-1">
-                            <a href="{{ route('settings') }}" class="block rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Profile & Settings</a>
+                            <a href="{{ route('settings') }}" class="block rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">{{ __('messages.profile_settings') }}</a>
                             <form method="POST" action="{{ route('logout') }}">@csrf
-                                <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+                                <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{{ __('messages.logout') }}</button>
                             </form>
                         </div>
                     </div>
@@ -483,8 +485,8 @@
 
     <footer class="px-4 sm:px-6 lg:px-8 py-4 border-t border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
         <div class="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between text-adminMuted">
-            <p>&copy; {{ now()->year }} Intelligent Recruitment System. All rights reserved.</p>
-            <p>Admin control center for secure recruitment operations.</p>
+            <p>&copy; {{ now()->year }} Intelligent Recruitment System. {{ __('messages.all_rights_reserved_sentence') }}</p>
+            <p>{{ __('messages.admin_control_center') }}</p>
         </div>
     </footer>
 </div>

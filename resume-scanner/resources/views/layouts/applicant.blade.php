@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $pageTitle ?? 'Applicant Portal' }} — Smart Recruitment</title>
+    <title>{{ $pageTitle ?? __('messages.applicant_portal') }} — Smart Recruitment</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {{-- Immediate dark-mode flash prevention --}}
     <script>
@@ -292,61 +293,61 @@
         <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-sm select-none">SR</div>
         <div>
                 <div class="font-bold text-sm text-white leading-tight">Smart Recruitment</div>
-                <div class="text-xs text-white/70">Applicant Portal</div>
+                <div class="text-xs text-white/70">{{ __('messages.applicant_portal') }}</div>
         </div>
     </div>
 
     <nav class="flex-1 px-3 py-4 space-y-0.5">
-        <p class="px-3 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">Main Menu</p>
+        <p class="px-3 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">{{ __('messages.main_menu') }}</p>
 
         <a href="{{ route('applicant.dashboard') }}" class="ap-nav-link {{ $apNav === 'dashboard' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v9h5v-5h4v5h5v-9"/></svg>
-            My Dashboard
+            {{ __('messages.my_dashboard') }}
         </a>
         <a href="{{ route('applicant.jobs') }}" class="ap-nav-link {{ $apNav === 'applicant.jobs' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-            Job Vacancies
+            {{ __('messages.job_vacancies') }}
         </a>
         <a href="{{ route('applicant.applications') }}" class="ap-nav-link {{ $apNav === 'applicant.applications' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>
-            My Applications
+            {{ __('messages.my_applications') }}
         </a>
         <a href="{{ route('applicant.recommendations') }}" class="ap-nav-link {{ $apNav === 'applicant.recommendations' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.07 4.93A10 10 0 1 1 4.93 19.07"/></svg>
-            AI Recommendations
+            {{ __('messages.ai_recommendations') }}
         </a>
         <a href="{{ route('applicant.interviews') }}" class="ap-nav-link {{ $apNav === 'applicant.interviews' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 2v4M8 2v4M3 10h18"/></svg>
-            Interviews
+            {{ __('messages.interviews') }}
         </a>
         <a href="{{ route('applicant.notifications') }}" class="ap-nav-link {{ $apNav === 'applicant.notifications' ? 'active' : '' }}">
             <span class="relative">
                 <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                 @if($unreadCount > 0)<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[.55rem] font-bold rounded-full min-w-[.9rem] h-[.9rem] flex items-center justify-center px-0.5">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>@endif
             </span>
-            Notifications
+            {{ __('messages.notifications') }}
         </a>
 
-        <p class="px-3 mt-4 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">Documents</p>
+        <p class="px-3 mt-4 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">{{ __('messages.documents') }}</p>
         <a href="{{ route('applicant.downloads') }}" class="ap-nav-link {{ $apNav === 'applicant.downloads' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-8m0 8l-3-3m3 3l3-3"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/></svg>
-            Download Center
+            {{ __('messages.download_center') }}
         </a>
 
-        <p class="px-3 mt-4 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">Account</p>
+        <p class="px-3 mt-4 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">{{ __('messages.account') }}</p>
         <a href="{{ route('applicant.profile') }}" class="ap-nav-link {{ $apNav === 'applicant.profile' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-            My Profile
+            {{ __('messages.my_profile') }}
         </a>
         <a href="{{ route('settings') }}" class="ap-nav-link {{ $apNav === 'settings' ? 'active' : '' }}">
             <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317a1 1 0 011.35-.936l.56.255a1 1 0 00.83 0l.56-.255a1 1 0 011.35.936l.065.613a1 1 0 00.564.79l.524.247a1 1 0 01.48 1.31l-.247.524a1 1 0 000 .83l.247.524a1 1 0 01-.48 1.31l-.524.247a1 1 0 00-.564.79l-.065.613a1 1 0 01-1.35.936l-.56-.255a1 1 0 00-.83 0l-.56.255a1 1 0 01-1.35-.936l-.065-.613a1 1 0 00-.564-.79l-.524-.247a1 1 0 01-.48-1.31l.247-.524a1 1 0 000-.83l-.247-.524a1 1 0 01.48-1.31l.524-.247a1 1 0 00.564-.79l.065-.613z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            Settings
+            {{ __('messages.settings') }}
         </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="ap-nav-link w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
                 <svg class="ap-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
-                Logout
+                {{ __('messages.logout') }}
             </button>
         </form>
     </nav>
@@ -386,7 +387,7 @@
         {{-- Search --}}
         <form action="{{ route('applicant.jobs') }}" method="GET" class="flex-1 max-w-sm hidden sm:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2">
             <svg class="h-4 w-4 text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
-            <input name="q" type="text" placeholder="Search vacancies..." class="flex-1 bg-transparent text-sm outline-none text-slate-700 dark:text-slate-200 placeholder-muted" />
+            <input name="q" type="text" placeholder="{{ __('messages.search_vacancies') }}" class="flex-1 bg-transparent text-sm outline-none text-slate-700 dark:text-slate-200 placeholder-muted" />
         </form>
 
         <div class="flex-1"></div>
@@ -394,9 +395,11 @@
         @if(session('impersonator_id'))
             <form method="POST" action="{{ route('admin.impersonation.leave') }}">
                 @csrf
-                <button type="submit" class="h-10 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100">Return to Admin</button>
+                <button type="submit" class="h-10 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100">{{ __('messages.return_to_admin') }}</button>
             </form>
         @endif
+
+        @include('partials.language-switcher')
 
         {{-- Dark mode toggle --}}
         <button id="ap-theme-btn" type="button" aria-label="Toggle dark mode" class="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors">
@@ -414,16 +417,16 @@
             </button>
 
             <div id="ap-notif-dropdown" class="hidden absolute right-0 mt-2 w-72 ap-card py-2 z-50 border border-slate-100 dark:border-slate-700">
-                <div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted border-b border-slate-100 dark:border-slate-700">Notifications</div>
+                <div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted border-b border-slate-100 dark:border-slate-700">{{ __('messages.notifications') }}</div>
                 @forelse(\App\Models\Notification::query()->where('user_id', $user?->id)->latest()->limit(5)->get() as $n)
                     <div class="px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm border-b border-slate-50 dark:border-slate-800 last:border-0">
                         <div class="font-medium text-slate-700 dark:text-slate-200">{{ $n->title }}</div>
                         <div class="text-xs text-muted mt-0.5">{{ $n->message }}</div>
                     </div>
                 @empty
-                    <div class="px-4 py-3 text-sm text-muted">No notifications yet.</div>
+                    <div class="px-4 py-3 text-sm text-muted">{{ __('messages.no_notifications') }}</div>
                 @endforelse
-                <div class="px-4 pt-2 pb-1"><a href="{{ route('applicant.notifications') }}" class="text-xs font-semibold text-primary hover:underline">View all</a></div>
+                <div class="px-4 pt-2 pb-1"><a href="{{ route('applicant.notifications') }}" class="text-xs font-semibold text-primary hover:underline">{{ __('messages.view_all') }}</a></div>
             </div>
         </div>
 
@@ -439,11 +442,11 @@
                     <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $user?->name }}</div>
                     <div class="text-xs text-muted">{{ $user?->email }}</div>
                 </div>
-                <a href="{{ route('applicant.profile') }}" class="block px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">My Profile</a>
-                <a href="{{ route('settings') }}" class="block px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">Settings</a>
+                <a href="{{ route('applicant.profile') }}" class="block px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">{{ __('messages.my_profile') }}</a>
+                <a href="{{ route('settings') }}" class="block px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">{{ __('messages.settings') }}</a>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">{{ __('messages.logout') }}</button>
                 </form>
             </div>
         </div>
@@ -475,8 +478,8 @@
 
     <footer class="px-4 sm:px-6 lg:px-8 py-4 border-t border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
         <div class="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between text-muted">
-            <p>&copy; {{ now()->year }} Smart Recruitment. All rights reserved.</p>
-            <p>Applicant self-service portal.</p>
+            <p>&copy; {{ now()->year }} Smart Recruitment. {{ __('messages.all_rights_reserved_sentence') }}</p>
+            <p>{{ __('messages.applicant_self_service_portal') }}</p>
         </div>
     </footer>
 </div>
@@ -581,19 +584,44 @@
         if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
     };
 
-    const botReply = (question) => {
-        const q = question.toLowerCase();
-        if (q.includes('apply') || q.includes('job'))
-            return '💼 Go to "Job Vacancies" to browse and apply for open positions.';
-        if (q.includes('interview'))
-            return '📅 Check "Interviews" section on your dashboard for schedules.';
-        if (q.includes('cv') || q.includes('resume'))
-            return '📄 You can upload your CV directly below in this chat, or from "My Profile" page.';
-        if (q.includes('status') || q.includes('application'))
-            return '📊 See "My Applications" on your dashboard to track all statuses.';
-        if (q.includes('notification'))
-            return '🔔 Your notifications appear at the top right bell icon.';
-        return '🤖 I can help with jobs, applications, interviews and CV tips. What do you need?';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const chatApiUrl = '{{ route('applicant.chatbot.message') }}';
+
+    const sendChatQuestion = async (question) => {
+        addMsg(question, 'user');
+        chatInput.value = '';
+
+        const loading = document.createElement('div');
+        loading.className = 'bot-msg bot-loading';
+        loading.textContent = '⏳ Inatumia AI support...';
+        chatMsgs?.appendChild(loading);
+        if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+
+        try {
+            const response = await fetch(chatApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ question }),
+            });
+
+            const data = await response.json();
+            loading.remove();
+
+            if (!response.ok || typeof data.reply !== 'string') {
+                addMsg('AI support haikuwe able kuleta jibu sahihi. Jaribu tena tafadhali.', 'bot');
+                return;
+            }
+
+            addMsg(data.reply, 'bot');
+        } catch (error) {
+            loading.remove();
+            addMsg('Kuna tatizo kuwasiliana na AI support. Jaribu tena baadaye.', 'bot');
+            console.error(error);
+        }
     };
 
     chatFab?.addEventListener('click', () => chatWindow?.classList.toggle('show'));
@@ -605,10 +633,7 @@
     });
     chatInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && chatInput.value.trim()) {
-            const q = chatInput.value.trim();
-            addMsg(q, 'user');
-            chatInput.value = '';
-            setTimeout(() => addMsg(botReply(q), 'bot'), 400);
+            sendChatQuestion(chatInput.value.trim());
         }
     });
 

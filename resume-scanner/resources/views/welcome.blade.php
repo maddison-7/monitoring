@@ -163,10 +163,11 @@
             </a>
 
             <nav class="hidden items-center gap-2 md:flex">
-                <a href="#dashboards" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-white">Dashboards</a>
+                <a href="#dashboards" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-white">{{ __('messages.dashboards') }}</a>
             </nav>
 
             <div class="hidden items-center gap-2 md:flex">
+                @include('partials.language-switcher')
                 <button id="themeToggleBtn" type="button" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" aria-label="Toggle theme">
                     <span id="themeToggleLabel">Dark</span>
                 </button>
@@ -177,8 +178,8 @@
                         <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Logout</button>
                     </form>
                 @else
-                    <a href="{{ route('login') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Login</a>
-                    <a href="{{ route('register') }}" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-glow hover:bg-blue-800">Register</a>
+                    <a href="{{ route('login') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('messages.login') }}</a>
+                    <a href="{{ route('register') }}" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-glow hover:bg-blue-800">{{ __('messages.register') }}</a>
                 @endauth
             </div>
 
@@ -192,7 +193,10 @@
                     <button id="themeToggleBtnMobile" type="button" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" aria-label="Toggle theme">
                         <span id="themeToggleLabelMobile">Dark</span>
                     </button>
-                    <a href="#dashboards" class="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white">Dashboards</a>
+                    <div class="flex justify-center">
+                        @include('partials.language-switcher')
+                    </div>
+                    <a href="#dashboards" class="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white">{{ __('messages.dashboards') }}</a>
 
                     <div class="mt-2 grid grid-cols-2 gap-2">
                         @auth
@@ -202,8 +206,8 @@
                                 <button type="submit" class="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Logout</button>
                             </form>
                         @else
-                            <a href="{{ route('login') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Login</a>
-                            <a href="{{ route('register') }}" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-glow hover:bg-blue-800">Register</a>
+                            <a href="{{ route('login') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ __('messages.login') }}</a>
+                            <a href="{{ route('register') }}" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-glow hover:bg-blue-800">{{ __('messages.register') }}</a>
                         @endauth
                     </div>
                 </div>
@@ -217,19 +221,19 @@
                 <div class="fade-up">
                     <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
                         <span class="h-2 w-2 rounded-full bg-blue-700"></span>
-                        Apply Today
+                        {{ __('messages.welcome_badge') }}
                     </div>
                     <h1 class="mt-5 font-display text-4xl font-extrabold leading-[1.05] text-slate-900 sm:text-5xl lg:text-6xl">
-                        Welcome Applicants, find jobs and apply with confidence.
+                        {{ __('messages.welcome_title') }}
                     </h1>
                     <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-                        Explore open vacancies, submit your application in minutes, and track each step from screening to interview in one clear portal.
+                        {{ __('messages.welcome_description') }}
                     </p>
 
                     <div class="mt-7 flex flex-wrap gap-2 text-xs font-semibold text-slate-700 sm:text-sm">
-                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">Role-based portals</span>
-                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">AI-assisted screening</span>
-                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">Live recruitment analytics</span>
+                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">{{ __('messages.welcome_chip_roles') }}</span>
+                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">{{ __('messages.welcome_chip_ai') }}</span>
+                        <span class="rounded-full border border-blue-100 bg-white px-3 py-1">{{ __('messages.welcome_chip_analytics') }}</span>
                     </div>
                 </div>
 
@@ -251,38 +255,18 @@
         </section>
 
         <section id="showcase" class="mx-auto mt-10 max-w-7xl rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
-            <div class="grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
-                <article class="relative overflow-hidden rounded-2xl border border-slate-200">
-                    <img
-                        src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80"
-                        alt="Modern recruitment team reviewing hiring analytics on screens"
-                        class="h-[340px] w-full object-cover sm:h-[420px]"
-                    />
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent"></div>
-                    <div class="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
-                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">Career Journey</p>
-                        <h2 class="mt-2 font-display text-2xl font-bold sm:text-3xl">Discover opportunities and submit your next application</h2>
-                    </div>
-                </article>
-
-                <div class="grid gap-4">
-                    <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">Admin Control</p>
-                        <h3 class="mt-2 font-display text-xl font-bold">System Controller dashboard</h3>
-                        <p class="mt-2 text-sm text-slate-600">Centralized governance, user control, and recruitment analytics without clutter.</p>
-                    </article>
-                    <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Recruiter Workspace</p>
-                        <h3 class="mt-2 font-display text-xl font-bold">Stronger candidate lifecycle actions</h3>
-                        <p class="mt-2 text-sm text-slate-600">Offer, acceptance, onboarding, and placement closure in one clear flow.</p>
-                    </article>
-                    <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-700">Applicant Portal</p>
-                        <h3 class="mt-2 font-display text-xl font-bold">Cleaner progress visibility</h3>
-                        <p class="mt-2 text-sm text-slate-600">Better profile flow, notifications, interview status, and personalized recommendations.</p>
-                    </article>
+            <article class="relative overflow-hidden rounded-2xl border border-slate-200">
+                <img
+                    src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80"
+                    alt="Modern recruitment team reviewing hiring analytics on screens"
+                    class="h-[340px] w-full object-cover sm:h-[420px]"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">Career Journey</p>
+                    <h2 class="mt-2 font-display text-2xl font-bold sm:text-3xl">Discover opportunities and submit your next application</h2>
                 </div>
-            </div>
+            </article>
         </section>
 
         <section id="features" class="mx-auto mt-10 max-w-7xl">

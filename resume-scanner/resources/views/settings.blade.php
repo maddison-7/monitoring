@@ -14,7 +14,7 @@
             @endif
             @if ($errors->any())
                 <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    <p class="font-semibold">Please fix the highlighted fields and try again.</p>
+                    <p class="font-semibold">{{ __('messages.fix_highlighted_fields') }}</p>
                     <ul class="mt-2 list-disc pl-5">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
@@ -25,9 +25,9 @@
 
             <div class="flex items-start justify-between gap-4">
                 <div>
-                    <div class="inline-flex rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent uppercase tracking-[0.16em]">Profile</div>
-                    <h2 class="mt-4 text-2xl font-bold text-text">Account settings</h2>
-                    <p class="mt-2 text-sm text-muted">Manage identity, password, and profile preferences without leaving your current portal.</p>
+                    <div class="inline-flex rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent uppercase tracking-[0.16em]">{{ __('messages.profile') }}</div>
+                    <h2 class="mt-4 text-2xl font-bold text-text">{{ __('messages.account_settings') }}</h2>
+                    <p class="mt-2 text-sm text-muted">{{ __('messages.manage_identity_password') }}</p>
                 </div>
             </div>
 
@@ -36,7 +36,7 @@
                     @csrf
 
                     <div>
-                        <label class="block text-sm font-medium text-text mb-3">Profile picture</label>
+                        <label class="block text-sm font-medium text-text mb-3">{{ __('messages.profile_picture') }}</label>
                         <div class="flex items-center gap-4">
                             <div class="h-16 w-16 rounded-full bg-accentSoft text-accent flex items-center justify-center font-bold text-lg flex-shrink-0" id="avatarPreview">
                                 @if ($user?->getAvatarUrl())
@@ -62,37 +62,52 @@
                     </div>
 
                     <div class="grid gap-5 md:grid-cols-2">
-                        <input name="password" type="password" class="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-text" placeholder="New password" />
+                        <label class="block">
+                            <span class="text-sm font-medium text-text mb-2 inline-block">{{ __('messages.language') }}</span>
+                            <select name="locale" class="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-text">
+                                @foreach(config('app.supported_locales') as $localeKey => $localeName)
+                                    <option value="{{ $localeKey }}" {{ old('locale', $user?->locale ?? app()->getLocale()) === $localeKey ? 'selected' : '' }}>{{ $localeName }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <div>
+                            <input name="password" type="password" class="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-text" placeholder="New password" />
+                            <p class="mt-2 text-xs text-muted">Leave blank to keep your current password.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-5 md:grid-cols-2">
                         <input name="password_confirmation" type="password" class="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-text" placeholder="Confirm new password" />
+                        <div></div>
                     </div>
 
                     <div class="mt-5 space-y-3">
                         <label class="flex items-center justify-between rounded-2xl border border-border px-4 py-4">
-                            <span class="text-sm text-text">Email notifications</span>
+                            <span class="text-sm text-text">{{ __('messages.email_notifications') }}</span>
                             <input type="checkbox" class="h-5 w-5 rounded border-border" />
                         </label>
                         <label class="flex items-center justify-between rounded-2xl border border-border px-4 py-4">
-                            <span class="text-sm text-text">Remember filters</span>
+                            <span class="text-sm text-text">{{ __('messages.remember_filters') }}</span>
                             <input type="checkbox" checked class="h-5 w-5 rounded border-border" />
                         </label>
                     </div>
 
-                    <button type="submit" class="nav-btn-primary mt-6 h-11 px-5 text-sm font-semibold">Save changes</button>
+                    <button type="submit" class="nav-btn-primary mt-6 h-11 px-5 text-sm font-semibold">{{ __('messages.save_changes') }}</button>
                 </form>
             </div>
         </section>
 
         <aside class="space-y-6">
             <div class="card p-6">
-                <h3 class="font-semibold text-text">Security</h3>
-                <p class="mt-2 text-sm text-muted">Use a strong password and log out on shared devices.</p>
+                <h3 class="font-semibold text-text">{{ __('messages.security') }}</h3>
+                <p class="mt-2 text-sm text-muted">{{ __('messages.security_help') }}</p>
             </div>
 
             <div class="card p-6">
-                <h3 class="font-semibold text-text">Links</h3>
+                <h3 class="font-semibold text-text">{{ __('messages.links') }}</h3>
                 <div class="mt-4 space-y-3">
-                    <a href="{{ route('privacy') }}" class="block rounded-xl border border-border px-4 py-3 text-sm text-text">Privacy Policy</a>
-                    <a href="{{ route('terms') }}" class="block rounded-xl border border-border px-4 py-3 text-sm text-text">Terms & Conditions</a>
+                    <a href="{{ route('privacy') }}" class="block rounded-xl border border-border px-4 py-3 text-sm text-text">{{ __('messages.privacy_policy') }}</a>
+                    <a href="{{ route('terms') }}" class="block rounded-xl border border-border px-4 py-3 text-sm text-text">{{ __('messages.terms_conditions') }}</a>
                 </div>
             </div>
         </aside>

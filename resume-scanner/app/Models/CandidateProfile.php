@@ -6,6 +6,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int $job_posting_id
+ * @property string|null $resume_path
+ * @property string|null $resume_original_name
+ * @property string|null $raw_text
+ * @property string|null $anonymized_text
+ * @property array|null $parsed_json
+ * @property array|null $skills_json
+ * @property float $years_experience
+ * @property int $match_score
+ * @property string|null $recommendation
+ * @property string|null $status
+ */
 class CandidateProfile extends Model
 {
     use HasFactory;

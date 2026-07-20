@@ -22,6 +22,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
+    /** @property string $locale */
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
@@ -34,7 +35,9 @@ class User extends Authenticatable
         'email',
         'role',
         'profile_picture',
+        'locale',
         'password',
+        'terms_accepted_at',
     ];
 
     /**
@@ -54,6 +57,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

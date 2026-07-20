@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,5 +57,26 @@ class Job extends Model
     public function savedByApplicants(): HasMany
     {
         return $this->hasMany(SavedJob::class);
+    }
+
+    public function scopePublishedExpired(Builder $query): Builder
+    {
+        return $query->where('status', 'published')->where('application_deadline', '<', now());
+    }
+
+    public function scopePurgeableClosed(Builder $query): Builder
+    {
+        return $query->where('status', 'closed')
+            ->whereDoesntHave('applications', function (Builder $applications): void {
+                $applications->where(function (Builder $active): void {
+                    $active
+                        ->whereNotIn('status', ['rejected', 'offer_declined'])
+                        ->where(function (Builder $notPlaced): void {
+                            $notPlaced
+                                ->whereNull('placement_status')
+                                ->orWhere('placement_status', '!=', 'closed');
+                        });
+                });
+            });
     }
 }

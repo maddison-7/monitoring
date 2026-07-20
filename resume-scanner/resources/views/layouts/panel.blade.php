@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -309,31 +309,31 @@
         </div>
 
         <nav class="px-4 py-5 space-y-1 flex-1 overflow-y-auto">
-            <p class="px-2 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold sidebar-label">Main Menu</p>
+            <p class="px-2 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold sidebar-label">{{ __('messages.main_menu') }}</p>
             <a class="sidebar-link {{ $activeNav === 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}" title="Dashboard">
                 <svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5.5 10.5V20h13V10.5"/></svg>
-                <span class="sidebar-label">Dashboard</span>
+                <span class="sidebar-label">{{ __('messages.dashboard') }}</span>
             </a>
 
             @if ($isAdmin)
-                <a class="sidebar-link {{ $activeNav === 'admin.recruiters' ? 'active' : '' }}" href="{{ route('admin.recruiters') }}" title="Recruiter Management"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 14a4 4 0 1 0-8 0m-3 7a7 7 0 0 1 14 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="sidebar-label">Recruiter Management</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.jobs' ? 'active' : '' }}" href="{{ route('admin.jobs') }}" title="Global Jobs"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg><span class="sidebar-label">Global Jobs</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}" title="Analytics"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">Analytics</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.reports' ? 'active' : '' }}" href="{{ route('admin.reports') }}" title="Reports"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5"/></svg><span class="sidebar-label">Reports</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}" title="Audit Logs"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sidebar-label">Audit Logs</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.api' ? 'active' : '' }}" href="{{ route('admin.api') }}" title="API Usage"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5-6h3m-9 9h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg><span class="sidebar-label">API Usage</span></a>
-                <a class="sidebar-link {{ $activeNav === 'admin.system' ? 'active' : '' }}" href="{{ route('admin.system') }}" title="System Config"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317a1 1 0 0 1 1.35-.936l.56.255a1 1 0 0 0 .83 0l.56-.255a1 1 0 0 1 1.35.936l.065.613a1 1 0 0 0 .564.79l.524.247a1 1 0 0 1 .48 1.31l-.247.524a1 1 0 0 0 0 .83l.247.524a1 1 0 0 1-.48 1.31l-.524.247a1 1 0 0 0-.564.79l-.065.613a1 1 0 0 1-1.35.936l-.56-.255a1 1 0 0 0-.83 0l-.56.255a1 1 0 0 1-1.35-.936l-.065-.613a1 1 0 0 0-.564-.79l-.524-.247a1 1 0 0 1-.48-1.31l.247-.524a1 1 0 0 0 0-.83l-.247-.524a1 1 0 0 1 .48-1.31l.524-.247a1 1 0 0 0 .564-.79l.065-.613z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg><span class="sidebar-label">System Config</span></a>
-                <a class="sidebar-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}" title="Job Management"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V5a4 4 0 0 1 8 0v2m-11 0h14a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1z"/></svg><span class="sidebar-label">Job Management</span></a>
-                <a class="sidebar-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}" title="Candidate Ranking"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">Candidate Ranking</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.recruiters' ? 'active' : '' }}" href="{{ route('admin.recruiters') }}" title="{{ __('messages.recruiter_management') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 14a4 4 0 1 0-8 0m-3 7a7 7 0 0 1 14 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="sidebar-label">{{ __('messages.recruiter_management') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.jobs' ? 'active' : '' }}" href="{{ route('admin.jobs') }}" title="{{ __('messages.global_jobs') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg><span class="sidebar-label">{{ __('messages.global_jobs') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}" title="{{ __('messages.analytics') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">{{ __('messages.analytics') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.reports' ? 'active' : '' }}" href="{{ route('admin.reports') }}" title="{{ __('messages.reports') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5"/></svg><span class="sidebar-label">{{ __('messages.reports') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}" title="{{ __('messages.audit_logs') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-9-9"/></svg><span class="sidebar-label">{{ __('messages.audit_logs') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.api' ? 'active' : '' }}" href="{{ route('admin.api') }}" title="{{ __('messages.api_usage') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5-6h3m-9 9h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg><span class="sidebar-label">{{ __('messages.api_usage') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'admin.system' ? 'active' : '' }}" href="{{ route('admin.system') }}" title="{{ __('messages.system_config') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317a1 1 0 0 1 1.35-.936l.56.255a1 1 0 0 0 .83 0l.56-.255a1 1 0 0 1 1.35.936l.065.613a1 1 0 0 0 .564.79l.524.247a1 1 0 0 1 .48 1.31l-.247.524a1 1 0 0 0 0 .83l.247.524a1 1 0 0 1-.48 1.31l-.524.247a1 1 0 0 0-.564.79l-.065.613a1 1 0 0 1-1.35.936l-.56-.255a1 1 0 0 0-.83 0l-.56.255a1 1 0 0 1-1.35-.936l-.065-.613a1 1 0 0 0-.564-.79l-.524-.247a1 1 0 0 1-.48-1.31l.247-.524a1 1 0 0 0 0-.83l-.247-.524a1 1 0 0 1 .48-1.31l.524-.247a1 1 0 0 0 .564-.79l.065-.613z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg><span class="sidebar-label">{{ __('messages.system_config') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}" title="{{ __('messages.job_management') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V5a4 4 0 0 1 8 0v2m-11 0h14a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1z"/></svg><span class="sidebar-label">{{ __('messages.job_management') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}" title="{{ __('messages.candidate_ranking') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">{{ __('messages.candidate_ranking') }}</span></a>
             @elseif ($isApplicant)
-                <a class="sidebar-link {{ $activeNav === 'applicant.profile' ? 'active' : '' }}" href="{{ route('applicant.profile') }}" title="Applicant Profile"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 21a9 9 0 0 1 18 0"/></svg><span class="sidebar-label">Applicant Profile</span></a>
-                <a class="sidebar-link {{ $activeNav === 'applicant.jobs' ? 'active' : '' }}" href="{{ route('applicant.jobs') }}" title="Browse Jobs"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg><span class="sidebar-label">Browse Jobs</span></a>
+                <a class="sidebar-link {{ $activeNav === 'applicant.profile' ? 'active' : '' }}" href="{{ route('applicant.profile') }}" title="{{ __('messages.applicant_profile') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 21a9 9 0 0 1 18 0"/></svg><span class="sidebar-label">{{ __('messages.applicant_profile') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'applicant.jobs' ? 'active' : '' }}" href="{{ route('applicant.jobs') }}" title="{{ __('messages.browse_jobs') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg><span class="sidebar-label">{{ __('messages.browse_jobs') }}</span></a>
             @else
-                <a class="sidebar-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}" title="Job Management"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V5a4 4 0 0 1 8 0v2m-11 0h14a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1z"/></svg><span class="sidebar-label">Job Management</span></a>
-                <a class="sidebar-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}" title="Candidate Ranking"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">Candidate Ranking</span></a>
+                <a class="sidebar-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}" title="{{ __('messages.job_management') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V5a4 4 0 0 1 8 0v2m-11 0h14a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1z"/></svg><span class="sidebar-label">{{ __('messages.job_management') }}</span></a>
+                <a class="sidebar-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}" title="{{ __('messages.candidate_ranking') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16V9m5 7V5m5 11v-6"/></svg><span class="sidebar-label">{{ __('messages.candidate_ranking') }}</span></a>
             @endif
 
-            <a class="sidebar-link {{ $activeNav === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}" title="Settings"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317a1 1 0 0 1 1.35-.936l.56.255a1 1 0 0 0 .83 0l.56-.255a1 1 0 0 1 1.35.936l.065.613a1 1 0 0 0 .564.79l.524.247a1 1 0 0 1 .48 1.31l-.247.524a1 1 0 0 0 0 .83l.247.524a1 1 0 0 1-.48 1.31l-.524.247a1 1 0 0 0-.564.79l-.065.613a1 1 0 0 1-1.35.936l-.56-.255a1 1 0 0 0-.83 0l-.56.255a1 1 0 0 1-1.35-.936l-.065-.613a1 1 0 0 0-.564-.79l-.524-.247a1 1 0 0 1-.48-1.31l.247-.524a1 1 0 0 0 0-.83l-.247-.524a1 1 0 0 1 .48-1.31l.524-.247a1 1 0 0 0 .564-.79l.065-.613z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg><span class="sidebar-label">Settings</span></a>
+            <a class="sidebar-link {{ $activeNav === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}" title="{{ __('messages.settings') }}"><svg class="sidebar-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317a1 1 0 0 1 1.35-.936l.56.255a1 1 0 0 0 .83 0l.56-.255a1 1 0 0 1 1.35.936l.065.613a1 1 0 0 0 .564.79l.524.247a1 1 0 0 1 .48 1.31l-.247.524a1 1 0 0 0 0 .83l.247.524a1 1 0 0 1-.48 1.31l-.524.247a1 1 0 0 0-.564.79l-.065.613a1 1 0 0 1-1.35.936l-.56-.255a1 1 0 0 0-.83 0l-.56.255a1 1 0 0 1-1.35-.936l-.065-.613a1 1 0 0 0-.564-.79l-.524-.247a1 1 0 0 1-.48-1.31l.247-.524a1 1 0 0 0 0-.83l-.247-.524a1 1 0 0 1 .48-1.31l.524-.247a1 1 0 0 0 .564-.79l.065-.613z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg><span class="sidebar-label">{{ __('messages.settings') }}</span></a>
         </nav>
 
         <div class="px-4 pb-6">
@@ -372,25 +372,25 @@
 
             <nav id="mobileNavMenu" class="hidden px-4 sm:px-6 pb-4">
                 <div class="rounded-2xl border border-border bg-white p-3 space-y-1">
-                    <a class="mobile-nav-link {{ $activeNav === 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Dashboard</a>
+                    <a class="mobile-nav-link {{ $activeNav === 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">{{ __('messages.dashboard') }}</a>
                     @if ($isAdmin)
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.recruiters' ? 'active' : '' }}" href="{{ route('admin.recruiters') }}">Recruiter Management</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.jobs' ? 'active' : '' }}" href="{{ route('admin.jobs') }}">Global Jobs</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}">Analytics</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.reports' ? 'active' : '' }}" href="{{ route('admin.reports') }}">Reports</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}">Audit Logs</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.api' ? 'active' : '' }}" href="{{ route('admin.api') }}">API Usage</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'admin.system' ? 'active' : '' }}" href="{{ route('admin.system') }}">System Config</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">Job Management</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">Candidate Ranking</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.recruiters' ? 'active' : '' }}" href="{{ route('admin.recruiters') }}">{{ __('messages.recruiter_management') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.jobs' ? 'active' : '' }}" href="{{ route('admin.jobs') }}">{{ __('messages.global_jobs') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}">{{ __('messages.analytics') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.reports' ? 'active' : '' }}" href="{{ route('admin.reports') }}">{{ __('messages.reports') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}">{{ __('messages.audit_logs') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.api' ? 'active' : '' }}" href="{{ route('admin.api') }}">{{ __('messages.api_usage') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'admin.system' ? 'active' : '' }}" href="{{ route('admin.system') }}">{{ __('messages.system_config') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">{{ __('messages.job_management') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">{{ __('messages.candidate_ranking') }}</a>
                     @elseif ($isApplicant)
-                        <a class="mobile-nav-link {{ $activeNav === 'applicant.profile' ? 'active' : '' }}" href="{{ route('applicant.profile') }}">Applicant Profile</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'applicant.jobs' ? 'active' : '' }}" href="{{ route('applicant.jobs') }}">Browse Jobs</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'applicant.profile' ? 'active' : '' }}" href="{{ route('applicant.profile') }}">{{ __('messages.applicant_profile') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'applicant.jobs' ? 'active' : '' }}" href="{{ route('applicant.jobs') }}">{{ __('messages.browse_jobs') }}</a>
                     @else
-                        <a class="mobile-nav-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">Job Management</a>
-                        <a class="mobile-nav-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">Candidate Ranking</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'hr.jobs' ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">{{ __('messages.job_management') }}</a>
+                        <a class="mobile-nav-link {{ $activeNav === 'hr.ranking' ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">{{ __('messages.candidate_ranking') }}</a>
                     @endif
-                    <a class="mobile-nav-link {{ $activeNav === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">Settings</a>
+                    <a class="mobile-nav-link {{ $activeNav === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">{{ __('messages.settings') }}</a>
                 </div>
             </nav>
         </div>
@@ -398,8 +398,8 @@
         <header class="sticky top-0 z-30 border-b border-border bg-white/90 backdrop-blur">
             <div class="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
                 <div>
-                    <div class="text-[11px] sm:text-xs uppercase tracking-[0.18em] text-muted">Resume Screener</div>
-                    <h1 id="desktopSidebarTitle" class="page-title text-xl sm:text-3xl font-bold text-text">{{ $pageHeading ?? 'Panel' }}</h1>
+                    <div class="text-[11px] sm:text-xs uppercase tracking-[0.18em] text-muted">{{ __('messages.app_name') }}</div>
+                    <h1 id="desktopSidebarTitle" class="page-title text-xl sm:text-3xl font-bold text-text">{{ $pageHeading ?? __('messages.panel') }}</h1>
                 </div>
 
                 <div class="flex items-center gap-3">
@@ -412,6 +412,7 @@
                     <button type="button" id="themeToggle" class="nav-btn h-11 px-3" aria-label="Toggle theme">
                         <span id="themeToggleText" class="text-sm font-semibold">Dark</span>
                     </button>
+                    @include('partials.language-switcher')
 
                     <button type="button" class="nav-btn h-11 w-11 relative hidden sm:inline-flex" aria-label="Notifications">
                         <svg class="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -448,10 +449,10 @@
                                 </div>
                             </div>
                             <div class="p-2 space-y-1">
-                                <a href="{{ route('settings') }}" class="flex items-center rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Profile</a>
+                                <a href="{{ route('settings') }}" class="flex items-center rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{{ __('messages.profile') }}</a>
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-                                    <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
+                                    <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50">{{ __('messages.logout') }}</button>
                                 </form>
                             </div>
                         </div>
@@ -471,7 +472,7 @@
 
             @if ($errors->any())
                 <div class="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    Please fix the highlighted fields.
+                    {{ __('messages.fix_highlighted_fields') }}
                 </div>
             @endif
 
@@ -480,8 +481,8 @@
 
         <footer class="px-4 sm:px-6 lg:px-8 py-4 border-t border-border bg-white/70 dark:bg-slate-900/70">
             <div class="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between text-muted">
-                <p>&copy; {{ now()->year }} Smart Recruitment. All rights reserved.</p>
-                <p>Unified recruitment workspace.</p>
+                <p>&copy; {{ now()->year }} {{ __('messages.app_name') }}. {{ __('messages.all_rights_reserved') }}</p>
+                <p>{{ __('messages.unified_recruitment_workspace') }}</p>
             </div>
         </footer>
     </div>

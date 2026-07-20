@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessApplicationAiScore;
+use App\Mail\InterviewScheduledMail;
 use App\Models\AiScore;
 use App\Models\Applicant;
 use App\Models\ApplicantLanguage;
@@ -10,33 +11,44 @@ use App\Models\Application;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Education;
+use App\Models\GeneratedDocument;
 use App\Models\Interview;
 use App\Models\Job;
 use App\Models\LoginHistory;
 use App\Models\Notification;
 use App\Models\SavedJob;
 use App\Models\Skill;
+use App\Services\Ai\ChatbotAssistantService;
 use App\Services\Ai\CvAnalysisService;
 use App\Services\Ai\RecruitmentScoringService;
 use App\Services\AuditLogService;
 use App\Services\CandidateCommunicationService;
+use App\Services\DocumentVerificationService;
 use App\Services\NotificationService;
 use App\Services\OutboundChannelService;
 use App\Services\ResumeTextExtractor;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class PortalController extends Controller
 {
+    private const FINAL_DECISION_STATUSES = ['hired', 'placed', 'offer_declined', 'rejected'];
+
     public function __construct(
         private readonly RecruitmentScoringService $recruitmentScoringService,
         private readonly CvAnalysisService $cvAnalysisService,
@@ -45,13 +57,15 @@ class PortalController extends Controller
         private readonly OutboundChannelService $outboundChannelService,
         private readonly AuditLogService $auditLogService,
         private readonly ResumeTextExtractor $resumeTextExtractor,
+        private readonly DocumentVerificationService $documentVerificationService,
+        private readonly ChatbotAssistantService $chatbotAssistantService,
     ) {
     }
 
     public function hrDashboard(Request $request): View
     {
         return view('hr.dashboard', [
-            'pageTitle' => 'HR Dashboard',
+            'pageTitle' => __('messages.hr_dashboard'),
             'pageHeading' => 'HR Dashboard',
             'activeNav' => 'dashboard',
             'dashboard' => $this->buildHrDashboardData($request),
@@ -66,7 +80,7 @@ class PortalController extends Controller
     public function hrInterviews(Request $request): View
     {
         return view('hr.interviews', [
-            'pageTitle' => 'Interviews',
+            'pageTitle' => __('messages.interviews'),
             'pageHeading' => 'Interviews',
             'activeNav' => 'interviews',
             'dashboard' => $this->buildHrDashboardData($request),
@@ -76,7 +90,7 @@ class PortalController extends Controller
     public function hrAnalyticsReports(Request $request): View
     {
         return view('hr.analytics-reports', [
-            'pageTitle' => 'Analytics & Reports',
+            'pageTitle' => __('messages.analytics_reports'),
             'pageHeading' => 'Analytics & Reports',
             'activeNav' => 'analytics',
             'dashboard' => $this->buildHrDashboardData($request),
@@ -91,7 +105,7 @@ class PortalController extends Controller
             ->update(['read_at' => now()]);
 
         return view('hr.notifications', [
-            'pageTitle' => 'Notifications',
+            'pageTitle' => __('messages.notifications'),
             'pageHeading' => 'Notifications',
             'activeNav' => 'notifications',
             'dashboard' => $this->buildHrDashboardData($request),
@@ -101,7 +115,7 @@ class PortalController extends Controller
     public function hrDepartments(Request $request): View
     {
         return view('hr.departments', [
-            'pageTitle' => 'Departments',
+            'pageTitle' => __('messages.departments'),
             'pageHeading' => 'Departments',
             'activeNav' => 'departments',
             'dashboard' => $this->buildHrDashboardData($request),
@@ -111,7 +125,7 @@ class PortalController extends Controller
     public function applicantDashboard(Request $request): View
     {
         return view('applicant.dashboard', [
-            'pageTitle' => 'Applicant Dashboard',
+            'pageTitle' => __('messages.my_dashboard'),
             'pageHeading' => 'Applicant Dashboard',
             'activeNav' => 'dashboard',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -121,7 +135,7 @@ class PortalController extends Controller
     public function applicantApplications(Request $request): View
     {
         return view('applicant.applications', [
-            'pageTitle' => 'My Applications',
+            'pageTitle' => __('messages.my_applications'),
             'pageHeading' => 'My Applications',
             'activeNav' => 'applicant.applications',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -131,7 +145,7 @@ class PortalController extends Controller
     public function applicantRecommendations(Request $request): View
     {
         return view('applicant.recommendations', [
-            'pageTitle' => 'AI Recommendations',
+            'pageTitle' => __('messages.ai_recommendations'),
             'pageHeading' => 'AI Recommendations',
             'activeNav' => 'applicant.recommendations',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -141,7 +155,7 @@ class PortalController extends Controller
     public function applicantInterviews(Request $request): View
     {
         return view('applicant.interviews', [
-            'pageTitle' => 'Interviews',
+            'pageTitle' => __('messages.interviews'),
             'pageHeading' => 'Interviews',
             'activeNav' => 'applicant.interviews',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -156,7 +170,7 @@ class PortalController extends Controller
             ->update(['read_at' => now()]);
 
         return view('applicant.notifications', [
-            'pageTitle' => 'Notifications',
+            'pageTitle' => __('messages.notifications'),
             'pageHeading' => 'Notifications',
             'activeNav' => 'applicant.notifications',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -166,7 +180,7 @@ class PortalController extends Controller
     public function applicantDownloads(Request $request): View
     {
         return view('applicant.downloads', [
-            'pageTitle' => 'Download Center',
+            'pageTitle' => __('messages.download_center'),
             'pageHeading' => 'Download Center',
             'activeNav' => 'applicant.downloads',
             'dashboard' => $this->buildApplicantDashboardData($request),
@@ -202,70 +216,98 @@ class PortalController extends Controller
 
     public function downloadApplicationSlip(Request $request, Application $application): Response
     {
-        $applicant = $this->resolveApplicant($request);
+        $applicant = $this->resolveApplicant($request)->load('user');
         abort_if((int) $application->applicant_id !== (int) $applicant->id, 403);
 
-        $content = implode("\n", [
-            'Application Slip',
-            'Application ID: ' . $application->application_id,
-            'Job: ' . ($application->job?->title ?? 'N/A'),
-            'Status: ' . strtoupper((string) $application->status),
-            'Applied At: ' . optional($application->applied_at)->format('Y-m-d H:i'),
+        $application->load('job');
+        $applicantName = (string) ($applicant->user->name ?? 'Applicant');
+        $jobTitle = $application->job?->title;
+
+        $issued = $this->documentVerificationService->issue(
+            GeneratedDocument::TYPE_APPLICATION_SLIP,
+            (int) $applicant->user_id,
+            $applicantName,
+            $jobTitle,
+            (int) $application->id
+        );
+
+        $pdf = Pdf::loadView('exports.application-slip-pdf', [
+            'application' => $application,
+            'document' => $issued['document'],
+            'qrDataUri' => $issued['qrDataUri'],
+            'verifyUrl' => $issued['verifyUrl'],
+            'applicantName' => $applicantName,
+            'jobTitle' => $jobTitle,
         ]);
 
-        return response($content)
-            ->header('Content-Type', 'text/plain')
-            ->header('Content-Disposition', 'attachment; filename="application-slip-' . $application->application_id . '.txt"');
+        return $pdf->download('application-slip-' . $application->application_id . '.pdf');
     }
 
     public function downloadInterviewInvitation(Request $request, Interview $interview): Response
     {
-        $interview->load(['application.job']);
-        $applicant = $this->resolveApplicant($request);
+        $interview->load(['application.job', 'interviewer']);
+        $applicant = $this->resolveApplicant($request)->load('user');
         abort_if((int) ($interview->application?->applicant_id ?? 0) !== (int) $applicant->id, 403);
 
-        $data = [
-            'interviewId' => (int) $interview->id,
-            'jobTitle' => (string) ($interview->application?->job?->title ?? 'N/A'),
+        $applicantName = (string) ($applicant->user->name ?? 'Applicant');
+        $jobTitle = $interview->application?->job?->title;
+
+        $issued = $this->documentVerificationService->issue(
+            GeneratedDocument::TYPE_INTERVIEW_LETTER,
+            (int) $applicant->user_id,
+            $applicantName,
+            $jobTitle,
+            (int) ($interview->application_id ?? 0) ?: null,
+            (int) $interview->id
+        );
+
+        $pdf = Pdf::loadView('exports.interview-letter-pdf', [
+            'document' => $issued['document'],
+            'qrDataUri' => $issued['qrDataUri'],
+            'verifyUrl' => $issued['verifyUrl'],
+            'applicantName' => $applicantName,
+            'jobTitle' => $jobTitle,
             'scheduledAt' => optional($interview->scheduled_at)->format('Y-m-d H:i') ?? 'N/A',
             'mode' => strtoupper((string) $interview->mode),
-            'venue' => (string) ($interview->venue ?: 'N/A'),
+            'venue' => (string) ($interview->venue ?: ''),
             'meetingLink' => (string) ($interview->meeting_link ?: 'N/A'),
-            'generatedAt' => now()->format('Y-m-d H:i'),
-        ];
+            'recruiterContact' => (string) ($interview->interviewer?->email ?? $interview->interviewer?->name ?? 'HR Team'),
+        ]);
 
-        if (class_exists('Barryvdh\\DomPDF\\Facade')) {
-            $pdf = \Barryvdh\DomPDF\Facade::loadView('exports.interview-invitation-pdf', ['data' => $data]);
-
-            return $pdf->download('interview-invitation-' . $interview->id . '.pdf');
-        }
-
-        $html = view('exports.interview-invitation-pdf', ['data' => $data])->render();
-
-        return response($html)
-            ->header('Content-Type', 'text/html')
-            ->header('Content-Disposition', 'attachment; filename="interview-invitation-' . $interview->id . '.html"');
+        return $pdf->download('interview-letter-' . $interview->id . '.pdf');
     }
 
     public function downloadOfferLetter(Request $request, Application $application): Response
     {
-        $applicant = $this->resolveApplicant($request);
+        $applicant = $this->resolveApplicant($request)->load('user');
         abort_if((int) $application->applicant_id !== (int) $applicant->id, 403);
 
         $eligible = in_array((string) $application->status, ['shortlisted', 'hired', 'offer_sent'], true);
         abort_unless($eligible, 403, 'Offer letter is not available for this application yet.');
 
-        $content = implode("\n", [
-            'Offer Letter (Provisional)',
-            'Application ID: ' . $application->application_id,
-            'Job: ' . ($application->job?->title ?? 'N/A'),
-            'Status: ' . strtoupper((string) $application->status),
-            'Generated At: ' . now()->format('Y-m-d H:i'),
+        $application->load('job');
+        $applicantName = (string) ($applicant->user->name ?? 'Applicant');
+        $jobTitle = $application->job?->title;
+
+        $issued = $this->documentVerificationService->issue(
+            GeneratedDocument::TYPE_OFFER_LETTER,
+            (int) $applicant->user_id,
+            $applicantName,
+            $jobTitle,
+            (int) $application->id
+        );
+
+        $pdf = Pdf::loadView('exports.offer-letter-pdf', [
+            'application' => $application,
+            'applicant' => $applicant,
+            'document' => $issued['document'],
+            'qrDataUri' => $issued['qrDataUri'],
+            'verifyUrl' => $issued['verifyUrl'],
+            'applicantName' => $applicantName,
+            'jobTitle' => $jobTitle,
         ]);
 
-        return response($content)
-            ->header('Content-Type', 'text/plain')
-            ->header('Content-Disposition', 'attachment; filename="offer-letter-' . $application->application_id . '.txt"');
+        return $pdf->download('offer-letter-' . $application->application_id . '.pdf');
     }
 
     public function hrExportCsv(Request $request): StreamedResponse
@@ -329,7 +371,7 @@ class PortalController extends Controller
             ->load(['educations', 'experiences', 'certificates', 'skills', 'languages', 'applications.job']);
 
         return view('applicant.profile', [
-            'pageTitle' => 'Applicant Profile',
+            'pageTitle' => __('messages.applicant_profile'),
             'pageHeading' => 'Applicant Profile',
             'activeNav' => 'applicant.profile',
             'applicant' => $applicant,
@@ -347,6 +389,7 @@ class PortalController extends Controller
             'city' => ['nullable', 'string', 'max:120'],
             'country' => ['nullable', 'string', 'max:120'],
             'bio' => ['nullable', 'string'],
+            'gpa' => ['nullable', 'numeric', 'min:0', 'max:4'],
             'languages_csv' => ['nullable', 'string'],
             'skills' => ['nullable', 'string'],
             'cv' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
@@ -364,6 +407,7 @@ class PortalController extends Controller
             'city' => $validated['city'] ?? null,
             'country' => $validated['country'] ?? null,
             'bio' => $validated['bio'] ?? null,
+            'gpa' => $validated['gpa'] ?? null,
             'languages_json' => collect(explode(',', (string) ($validated['languages_csv'] ?? '')))
                 ->map(fn (string $language): string => trim($language))
                 ->filter(fn (string $language): bool => $language !== '')
@@ -455,7 +499,7 @@ class PortalController extends Controller
             ->count();
 
         return view('applicant.jobs', [
-            'pageTitle' => 'Browse Jobs',
+            'pageTitle' => __('messages.browse_jobs'),
             'pageHeading' => 'Browse Jobs',
             'activeNav' => 'applicant.jobs',
             'totalJobs' => $totalJobs,
@@ -490,8 +534,8 @@ class PortalController extends Controller
         $savedJobIds = $applicant->savedJobs()->pluck('job_id')->all();
 
         return view('applicant.jobs-department', [
-            'pageTitle' => $department->name . ' Vacancies',
-            'pageHeading' => $department->name . ' Vacancies',
+            'pageTitle' => __('messages.department_named_vacancies', ['department' => $department->name]),
+            'pageHeading' => __('messages.department_named_vacancies', ['department' => $department->name]),
             'activeNav' => 'applicant.jobs',
             'department' => $department,
             'jobs' => $jobs,
@@ -517,7 +561,7 @@ class PortalController extends Controller
             ->exists();
 
         return view('applicant.job-detail', [
-            'pageTitle' => 'Job Requirements',
+            'pageTitle' => __('messages.job_requirements'),
             'pageHeading' => 'Job Requirements',
             'activeNav' => 'applicant.jobs',
             'job' => $job,
@@ -537,7 +581,7 @@ class PortalController extends Controller
             ->exists();
 
         return view('applicant.apply', [
-            'pageTitle' => 'Apply Job',
+            'pageTitle' => __('messages.apply_job_title'),
             'pageHeading' => 'Apply Job',
             'activeNav' => 'applicant.jobs',
             'job' => $job,
@@ -649,6 +693,226 @@ class PortalController extends Controller
         );
 
         return redirect()->route('applicant.recommendations')->with('success', 'CV uploaded successfully from AI Support chat. Check your AI recommendations below.');
+    }
+
+    public function applicantChatbotMessage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'question' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $question = trim($validated['question']);
+        if ($question === '') {
+            return response()->json(['reply' => 'Please type a question and I\'ll help you out.'], 422);
+        }
+
+        if ((string) config('services.gemini.api_key') === '') {
+            return response()->json(['reply' => 'AI support is unavailable right now. Please try again later.'], 503);
+        }
+
+        $applicant = $this->resolveApplicant($request)->load([
+            'user',
+            'applications.job',
+            'applications.aiScore',
+            'applications.interviews',
+            'savedJobs.job',
+        ]);
+
+        $historyKey = 'chatbot_history_applicant_' . $request->user()->id;
+        $history = (array) session($historyKey, []);
+
+        try {
+            $context = $this->buildApplicantChatContext($applicant);
+            $reply = $this->chatbotAssistantService->reply($context, $question, $history);
+        } catch (Throwable $exception) {
+            Log::warning('Applicant chatbot request failed unexpectedly.', ['exception' => $exception->getMessage()]);
+            $reply = null;
+        }
+
+        if ($reply === null) {
+            return response()->json(['reply' => 'AI support could not generate an answer right now. Please try again.'], 500);
+        }
+
+        $history[] = ['role' => 'user', 'text' => $question];
+        $history[] = ['role' => 'assistant', 'text' => $reply];
+        session([$historyKey => array_slice($history, -8)]);
+
+        return response()->json(['reply' => $reply]);
+    }
+
+    public function hrChatbotMessage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'question' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $question = trim($validated['question']);
+        if ($question === '') {
+            return response()->json(['reply' => 'Please type a question and I\'ll help you out.'], 422);
+        }
+
+        if ((string) config('services.gemini.api_key') === '') {
+            return response()->json(['reply' => 'AI support is unavailable right now. Please try again later.'], 503);
+        }
+
+        $historyKey = 'chatbot_history_hr_' . $request->user()->id;
+        $history = (array) session($historyKey, []);
+
+        try {
+            $context = $this->buildRecruiterChatContext($request);
+            $reply = $this->chatbotAssistantService->reply($context, $question, $history);
+        } catch (Throwable $exception) {
+            Log::warning('HR chatbot request failed unexpectedly.', ['exception' => $exception->getMessage()]);
+            $reply = null;
+        }
+
+        if ($reply === null) {
+            return response()->json(['reply' => 'AI support could not generate an answer right now. Please try again.'], 500);
+        }
+
+        $history[] = ['role' => 'user', 'text' => $question];
+        $history[] = ['role' => 'assistant', 'text' => $reply];
+        session([$historyKey => array_slice($history, -8)]);
+
+        return response()->json(['reply' => $reply]);
+    }
+
+    private function buildApplicantChatContext(Applicant $applicant): string
+    {
+        $lines = [];
+        $lines[] = 'Applicant name: ' . ($applicant->user->name ?? 'Unknown');
+        $lines[] = 'Applicant email: ' . ($applicant->user->email ?? 'Unknown');
+        $lines[] = 'GPA: ' . ($applicant->gpa ?? 'not provided');
+
+        $lines[] = 'Applications:';
+        foreach ($applicant->applications as $application) {
+            $score = $application->aiScore;
+            $lines[] = sprintf(
+                '- Job "%s" | status: %s | applied: %s%s',
+                $application->job?->title ?? 'Unknown',
+                $application->status,
+                optional($application->applied_at)->format('Y-m-d') ?? 'N/A',
+                $score ? sprintf(
+                    ' | AI match: %.1f%% (%s), strengths: %s, weaknesses: %s',
+                    (float) $score->match_percentage,
+                    $score->recommendation_level,
+                    implode(', ', (array) ($score->strengths ?? [])) ?: 'none listed',
+                    implode(', ', (array) ($score->weaknesses ?? [])) ?: 'none listed'
+                ) : ' | AI score: not yet available'
+            );
+        }
+        if ($applicant->applications->isEmpty()) {
+            $lines[] = '- No applications submitted yet.';
+        }
+
+        $lines[] = 'Upcoming interviews:';
+        $hasInterview = false;
+        foreach ($applicant->applications as $application) {
+            foreach ($application->interviews as $interview) {
+                if (!in_array((string) $interview->status, ['scheduled', 'confirmed'], true)) {
+                    continue;
+                }
+                $hasInterview = true;
+                $lines[] = sprintf(
+                    '- %s on %s (%s) at %s',
+                    $application->job?->title ?? 'Unknown role',
+                    optional($interview->scheduled_at)->format('Y-m-d H:i') ?? 'N/A',
+                    $interview->mode,
+                    $interview->venue ?: ($interview->meeting_link ?: 'TBA')
+                );
+            }
+        }
+        if (!$hasInterview) {
+            $lines[] = '- No upcoming interviews scheduled.';
+        }
+
+        $savedJobTitles = $applicant->savedJobs->map(fn ($saved) => $saved->job?->title)->filter()->values();
+        $lines[] = 'Saved jobs: ' . ($savedJobTitles->isNotEmpty() ? $savedJobTitles->implode(', ') : 'none');
+
+        $appliedJobIds = $applicant->applications->pluck('job_id')->filter()->values();
+        $openJobs = Job::query()
+            ->with('department')
+            ->where('status', 'published')
+            ->where(function ($query) {
+                $query->whereNull('application_deadline')->orWhere('application_deadline', '>=', now());
+            })
+            ->latest()
+            ->limit(15)
+            ->get();
+
+        $lines[] = 'Currently open job postings (status=published, deadline not passed):';
+        foreach ($openJobs as $openJob) {
+            $lines[] = sprintf(
+                '- "%s" | department: %s | positions: %d | deadline: %s | %s',
+                $openJob->title,
+                $openJob->department?->name ?? 'N/A',
+                $openJob->positions,
+                optional($openJob->application_deadline)->format('Y-m-d') ?? 'no deadline',
+                $appliedJobIds->contains($openJob->id) ? 'already applied' : 'not yet applied'
+            );
+        }
+        if ($openJobs->isEmpty()) {
+            $lines[] = '- No open job postings right now.';
+        }
+
+        $cvText = trim((string) $applicant->cv_text);
+        if ($cvText !== '') {
+            $lines[] = 'Resume text (excerpt): ' . mb_substr($cvText, 0, 2500);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function buildRecruiterChatContext(Request $request): string
+    {
+        $role = strtolower((string) $request->user()->role);
+        $isAdmin = in_array($role, ['admin', 'hr_manager', 'hr-manager'], true);
+
+        $jobsQuery = Job::query()
+            ->when(!$isAdmin, fn ($query) => $query->where('hr_officer_id', (int) $request->user()->id));
+
+        $jobs = $jobsQuery->latest()->limit(20)->get(['id', 'title', 'status', 'positions', 'application_deadline']);
+
+        $lines = [];
+        $lines[] = 'Recruiter: ' . ($request->user()->name ?? 'Unknown');
+        $lines[] = 'Job postings:';
+        foreach ($jobs as $job) {
+            $applicationCount = Application::query()->where('job_id', $job->id)->count();
+            $lines[] = sprintf(
+                '- "%s" | status: %s | positions: %d | deadline: %s | applications: %d',
+                $job->title,
+                $job->status,
+                $job->positions,
+                optional($job->application_deadline)->format('Y-m-d') ?? 'N/A',
+                $applicationCount
+            );
+        }
+        if ($jobs->isEmpty()) {
+            $lines[] = '- No job postings found.';
+        }
+
+        $jobIds = $jobsQuery->pluck('id');
+        $statusCounts = Application::query()
+            ->whereIn('job_id', $jobIds)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $lines[] = 'Application pipeline (by status): ' . ($statusCounts->isNotEmpty()
+            ? collect($statusCounts)->map(fn ($count, $status) => "{$status}: {$count}")->implode(', ')
+            : 'no applications yet');
+
+        $scoreStats = AiScore::query()
+            ->whereHas('application', fn ($query) => $query->whereIn('job_id', $jobIds))
+            ->selectRaw('recommendation_level, COUNT(*) as total, AVG(match_percentage) as avg_score')
+            ->groupBy('recommendation_level')
+            ->get();
+
+        $lines[] = 'AI score distribution: ' . ($scoreStats->isNotEmpty()
+            ? $scoreStats->map(fn ($row) => sprintf('%s: %d (avg %.1f%%)', $row->recommendation_level, $row->total, (float) $row->avg_score))->implode(', ')
+            : 'no AI scores yet');
+
+        return implode("\n", $lines);
     }
 
     public function applicantRespondInterview(Request $request, Interview $interview): RedirectResponse
@@ -846,7 +1110,6 @@ class PortalController extends Controller
             'mode' => ['required', 'string', Rule::in(['online', 'physical'])],
             'meeting_link' => ['nullable', 'url'],
             'venue' => ['nullable', 'string', 'max:255'],
-            'send_email_invite' => ['nullable', 'boolean'],
         ]);
 
         $this->ensureHrApplicationAccess($request, $application);
@@ -874,7 +1137,6 @@ class PortalController extends Controller
 
         $applicantUserId = (int) ($application->applicant?->user_id ?? 0);
         abort_if($applicantUserId <= 0, 404, 'Applicant user not found.');
-        $sendEmailInvite = (bool) ($validated['send_email_invite'] ?? false);
 
         $statusTemplate = $this->candidateCommunicationService->interviewScheduled($application->loadMissing('job'), $interview);
 
@@ -888,14 +1150,19 @@ class PortalController extends Controller
             true
         );
 
-        if ($sendEmailInvite) {
-            $applicantEmail = (string) ($application->applicant?->user?->email ?? '');
-            if ($applicantEmail !== '') {
-                $this->outboundChannelService->sendEmail(
-                    $applicantEmail,
-                    'Interview Invitation - ' . (string) ($application->job?->title ?? 'Recruitment Interview'),
-                    $statusTemplate['message']
-                );
+        $emailSent = false;
+        $applicantEmail = (string) ($application->applicant?->user?->email ?? '');
+        if ($applicantEmail !== '') {
+            $interview->load(['application.job', 'application.applicant.user', 'interviewer']);
+
+            try {
+                Mail::to($applicantEmail)->send(new InterviewScheduledMail($interview));
+                $emailSent = true;
+            } catch (Throwable $exception) {
+                Log::warning('Interview invitation email failed to send.', [
+                    'interview_id' => $interview->id,
+                    'exception' => $exception->getMessage(),
+                ]);
             }
         }
 
@@ -909,7 +1176,7 @@ class PortalController extends Controller
             $request
         );
 
-        return back()->with('success', 'Interview scheduled successfully.' . ($sendEmailInvite ? ' Invitation email sent.' : ' Email invitation was not sent.'));
+        return back()->with('success', 'Interview scheduled successfully.' . ($emailSent ? ' Invitation email sent.' : ' Email invitation could not be sent.'));
     }
 
     public function hrSendOffer(Request $request, Application $application): RedirectResponse
@@ -984,115 +1251,6 @@ class PortalController extends Controller
         return back()->with('success', 'Offer sent successfully.' . ((bool) ($validated['send_email_offer'] ?? false) ? ' Offer email sent.' : ' Offer email was not sent.'));
     }
 
-    public function hrUpdateOnboarding(Request $request, Application $application): RedirectResponse
-    {
-        $validated = $request->validate([
-            'onboarding_status' => ['required', 'string', Rule::in(['not_started', 'in_progress', 'completed'])],
-            'onboarding_notes' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        $this->ensureHrApplicationAccess($request, $application);
-        $application->loadMissing(['applicant', 'job']);
-
-        if ((string) ($application->offer_status ?? '') !== 'accepted' && (string) $application->status !== 'hired') {
-            return back()->with('error', 'Onboarding can only be updated after offer acceptance.');
-        }
-
-        $onboardingStatus = (string) $validated['onboarding_status'];
-
-        $update = [
-            'onboarding_status' => $onboardingStatus,
-            'onboarding_notes' => $validated['onboarding_notes'] ?? null,
-            'status' => $onboardingStatus === 'completed' ? 'onboarding_completed' : 'hired',
-        ];
-
-        if ($onboardingStatus === 'in_progress' && $application->onboarding_started_at === null) {
-            $update['onboarding_started_at'] = now();
-        }
-
-        if ($onboardingStatus === 'completed') {
-            $update['onboarding_completed_at'] = now();
-            $update['placement_status'] = $application->placement_status ?: 'open';
-        }
-
-        $application->update($update);
-
-        $applicantUserId = (int) ($application->applicant?->user_id ?? 0);
-        if ($applicantUserId > 0) {
-            $this->notificationService->notify(
-                $applicantUserId,
-                'onboarding_updated',
-                'Onboarding update',
-                'Your onboarding status for ' . ($application->job?->title ?? 'this role') . ' is now: ' . strtoupper(str_replace('_', ' ', $onboardingStatus)) . '.',
-                (int) $application->id
-            );
-        }
-
-        $this->auditLogService->log(
-            (int) $request->user()->id,
-            'onboarding.updated.web',
-            Application::class,
-            (int) $application->id,
-            null,
-            [
-                'onboarding_status' => $application->onboarding_status,
-                'onboarding_started_at' => optional($application->onboarding_started_at)->toIso8601String(),
-                'onboarding_completed_at' => optional($application->onboarding_completed_at)->toIso8601String(),
-            ],
-            $request
-        );
-
-        return back()->with('success', 'Onboarding status updated successfully.');
-    }
-
-    public function hrClosePlacement(Request $request, Application $application): RedirectResponse
-    {
-        $validated = $request->validate([
-            'placement_notes' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        $this->ensureHrApplicationAccess($request, $application);
-        $application->loadMissing(['applicant', 'job']);
-
-        if ((string) ($application->onboarding_status ?? '') !== 'completed') {
-            return back()->with('error', 'Placement can be closed only after onboarding is completed.');
-        }
-
-        $application->update([
-            'status' => 'placed',
-            'placement_status' => 'closed',
-            'placement_closed_at' => now(),
-            'placement_notes' => $validated['placement_notes'] ?? null,
-        ]);
-
-        $applicantUserId = (int) ($application->applicant?->user_id ?? 0);
-        if ($applicantUserId > 0) {
-            $this->notificationService->notify(
-                $applicantUserId,
-                'placement_closed',
-                'Placement completed',
-                'Your recruitment journey for ' . ($application->job?->title ?? 'this role') . ' has been successfully closed.',
-                (int) $application->id
-            );
-        }
-
-        $this->auditLogService->log(
-            (int) $request->user()->id,
-            'placement.closed.web',
-            Application::class,
-            (int) $application->id,
-            null,
-            [
-                'status' => $application->status,
-                'placement_status' => $application->placement_status,
-                'placement_closed_at' => optional($application->placement_closed_at)->toIso8601String(),
-            ],
-            $request
-        );
-
-        return back()->with('success', 'Placement closed successfully.');
-    }
-
     public function hrUpdateInterviewResult(Request $request, Interview $interview): RedirectResponse
     {
         $validated = $request->validate([
@@ -1155,12 +1313,14 @@ class PortalController extends Controller
         $jobs = Job::query()
             ->when(!$isAdmin, fn ($query) => $query->where('hr_officer_id', (int) $request->user()->id))
             ->latest()
-            ->get(['id', 'title']);
+            ->get(['id', 'title', 'positions']);
 
         $selectedJobId = (int) $request->query('job_id', 0);
         if ($selectedJobId === 0 && $jobs->isNotEmpty()) {
             $selectedJobId = (int) $jobs->first()->id;
         }
+
+        $selectedJobPositions = (int) ($jobs->firstWhere('id', $selectedJobId)?->positions ?? 0);
 
         $query = Application::query()
             ->with(['applicant.user', 'applicant.skills', 'applicant.educations', 'applicant.experiences', 'aiScore', 'job'])
@@ -1187,24 +1347,81 @@ class PortalController extends Controller
             $query->whereHas('aiScore', fn ($scoreQuery) => $scoreQuery->where('match_percentage', '>=', (float) $request->query('score_min')));
         }
 
-        $applications = $query
+        $query
             ->orderByDesc(
                 AiScore::query()
                     ->select('match_percentage')
                     ->whereColumn('ai_scores.application_id', 'applications.id')
                     ->limit(1)
             )
-            ->paginate(15)
-            ->withQueryString();
+            ->orderByDesc(
+                AiScore::query()
+                    ->select('fit_score')
+                    ->whereColumn('ai_scores.application_id', 'applications.id')
+                    ->limit(1)
+            )
+            ->orderBy('applications.applied_at')
+            ->orderBy('applications.id');
+
+        $perPage = 15;
+        $topN = (int) $request->query('top_n', 0);
+
+        if ($topN > 0) {
+            // A recruiter-chosen cap (e.g. "show only the top 50") must limit the whole
+            // ranked pool before pagination, not just the current page — Eloquent's own
+            // paginate() always overrides any prior ->limit() with its own page-sized one,
+            // so the only way to cap the total pool is to fetch it and paginate manually.
+            $topApplications = $query->take($topN)->get();
+            $page = (int) $request->query('page', 1);
+
+            $applications = new LengthAwarePaginator(
+                $topApplications->forPage($page, $perPage)->values(),
+                $topApplications->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        } else {
+            $applications = $query->paginate($perPage)->withQueryString();
+        }
 
         return view('hr.candidate-ranking', [
-            'pageTitle' => 'Candidate Ranking',
-            'pageHeading' => 'Candidate Ranking',
+            'pageTitle' => __('messages.applicants'),
+            'pageHeading' => 'Applicant',
             'activeNav' => 'hr.ranking',
             'jobs' => $jobs,
             'selectedJobId' => $selectedJobId,
+            'selectedJobPositions' => $selectedJobPositions,
+            'topN' => $topN,
             'applications' => $applications,
         ]);
+    }
+
+    public function hrAiResults(Request $request, Application $application): View
+    {
+        $this->ensureHrApplicationAccess($request, $application);
+
+        $application->load(['applicant.user', 'applicant.skills', 'applicant.educations', 'applicant.experiences', 'applicant.projects', 'applicant.achievements', 'aiScore', 'job']);
+
+        return view('hr.ai-results', [
+            'pageTitle' => __('messages.ai_results'),
+            'pageHeading' => 'AI Results',
+            'activeNav' => 'hr.ai-results',
+            'application' => $application,
+        ]);
+    }
+
+    public function hrRescanApplication(Request $request, Application $application): RedirectResponse
+    {
+        $this->ensureHrApplicationAccess($request, $application);
+
+        if (in_array((string) $application->status, self::FINAL_DECISION_STATUSES, true)) {
+            return back()->with('error', 'A final decision has already been made on this application, so it can no longer be re-scanned.');
+        }
+
+        ProcessApplicationAiScore::dispatch((int) $application->id);
+
+        return back()->with('success', 'AI re-scan complete. Results updated below.');
     }
 
     public function hrApplicationCv(Request $request, Application $application): BinaryFileResponse|RedirectResponse
@@ -1257,7 +1474,7 @@ class PortalController extends Controller
             ->withQueryString();
 
         return view('hr.jobs.index', [
-            'pageTitle' => 'Job Management',
+            'pageTitle' => __('messages.job_management'),
             'pageHeading' => 'Job Management',
             'activeNav' => 'hr.jobs',
             'jobs' => $jobs,
@@ -1269,7 +1486,7 @@ class PortalController extends Controller
     public function hrJobsCreate(): View
     {
         return view('hr.jobs.create', [
-            'pageTitle' => 'Create Vacancy',
+            'pageTitle' => __('messages.create_vacancy'),
             'pageHeading' => 'Create Vacancy',
             'activeNav' => 'hr.jobs',
             'departments' => $this->recruiterDepartments(),
@@ -1315,7 +1532,7 @@ class PortalController extends Controller
         $this->ensureHrJobAccess($request, $job);
 
         return view('hr.jobs.edit', [
-            'pageTitle' => 'Edit Vacancy',
+            'pageTitle' => __('messages.edit_vacancy'),
             'pageHeading' => 'Edit Vacancy',
             'activeNav' => 'hr.jobs',
             'job' => $job,
@@ -1521,32 +1738,93 @@ class PortalController extends Controller
      */
     private function buildHrDashboardData(Request $request): array
     {
+        $isAdmin = $this->isHrAdminScope($request);
+        $userId = (int) $request->user()->id;
+
+        $departmentStats = $this->buildHrDepartmentStats($isAdmin, $userId);
+
+        return [
+            'metrics' => $this->buildHrMetrics($isAdmin, $userId),
+            'weeklyGrowth' => $this->buildHrWeeklyGrowth($isAdmin, $userId),
+            'charts' => $this->buildHrChartData($isAdmin, $userId, $departmentStats),
+            'recentApplications' => $this->buildHrRecentApplications($isAdmin, $userId),
+            'upcomingInterviews' => $this->buildHrUpcomingInterviews($isAdmin, $userId),
+            'todayInterviews' => $this->buildHrTodayInterviews($isAdmin, $userId),
+            'interviewStatusOverview' => $this->buildHrInterviewStatusMap($isAdmin, $userId),
+            'topCandidates' => $this->buildHrTopCandidates($isAdmin, $userId),
+            'vacancyManagement' => $this->buildHrVacancyManagement($isAdmin, $userId),
+            'smartApplicants' => $this->buildHrSmartApplicants($isAdmin, $userId),
+            'notifications' => $this->buildHrNotifications($userId),
+            'unreadNotifications' => $this->countHrUnreadNotifications($userId),
+            'statusOverview' => $this->buildHrStatusOverview($isAdmin, $userId),
+            'activityLogs' => $this->buildHrActivityLogs($isAdmin, $userId),
+            'loginLogs' => $this->buildHrLoginLogs($isAdmin, $userId),
+            'departmentStats' => $departmentStats,
+        ];
+    }
+
+    private function isHrAdminScope(Request $request): bool
+    {
         $role = strtolower((string) $request->user()->role);
-        $isAdmin = in_array($role, ['admin', 'hr_manager', 'hr-manager'], true);
 
-        $jobsQuery = Job::query()->when(!$isAdmin, fn ($query) => $query->where('hr_officer_id', (int) $request->user()->id));
-        $applicationsQuery = Application::query()->whereHas(
+        return in_array($role, ['admin', 'hr_manager', 'hr-manager'], true);
+    }
+
+    private function hrScopedJobsQuery(bool $isAdmin, int $userId): \Illuminate\Database\Eloquent\Builder
+    {
+        return Job::query()->when(!$isAdmin, fn ($query) => $query->where('hr_officer_id', $userId));
+    }
+
+    private function hrScopedApplicationsQuery(bool $isAdmin, int $userId): \Illuminate\Database\Eloquent\Builder
+    {
+        return Application::query()->whereHas(
             'job',
-            fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id))
+            fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId))
         );
+    }
 
+    /**
+     * @return array{Total Applicants: int, Open Vacancies: int, Shortlisted: int, Pending Applications: int, AI Completed: int, AI Total: int}
+     */
+    private function buildHrMetrics(bool $isAdmin, int $userId): array
+    {
+        $applicationsQuery = $this->hrScopedApplicationsQuery($isAdmin, $userId);
         $totalApplications = (clone $applicationsQuery)->count();
-        $aiCompleted = (clone $applicationsQuery)->whereHas('aiScore')->count();
-        $totalApplicants = (clone $applicationsQuery)->distinct('applicant_id')->count('applicant_id');
 
-        $metrics = [
-            'Total Applicants' => $totalApplicants,
-            'Open Vacancies' => (clone $jobsQuery)->where('status', 'published')->where('application_deadline', '>=', now())->count(),
+        return [
+            'Total Applicants' => (clone $applicationsQuery)->distinct('applicant_id')->count('applicant_id'),
+            'Open Vacancies' => $this->hrScopedJobsQuery($isAdmin, $userId)->where('status', 'published')->where('application_deadline', '>=', now())->count(),
             'Shortlisted' => (clone $applicationsQuery)->where(function ($query): void {
                 $query->where('status', 'shortlisted')
                     ->orWhereHas('aiScore', fn ($scoreQuery) => $scoreQuery->whereIn('recommendation_level', ['Shortlisted', 'Highly Qualified']));
             })->count(),
             'Pending Applications' => (clone $applicationsQuery)->whereIn('status', ['submitted', 'pending', 'review', 'under_review', 'ai_processing'])->count(),
-            'AI Completed' => $aiCompleted,
+            'AI Completed' => (clone $applicationsQuery)->whereHas('aiScore')->count(),
             'AI Total' => $totalApplications,
         ];
+    }
 
-        $perJob = (clone $jobsQuery)
+    private function buildHrWeeklyGrowth(bool $isAdmin, int $userId): float
+    {
+        $applicationsQuery = $this->hrScopedApplicationsQuery($isAdmin, $userId);
+
+        $currentWeek = (clone $applicationsQuery)->where('applied_at', '>=', now()->startOfWeek())->count();
+        $previousWeek = (clone $applicationsQuery)
+            ->whereBetween('applied_at', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()])
+            ->count();
+
+        return $previousWeek > 0
+            ? round((($currentWeek - $previousWeek) / $previousWeek) * 100, 1)
+            : ($currentWeek > 0 ? 100.0 : 0.0);
+    }
+
+    /**
+     * @param array<int, array{department: string, count: int}> $departmentStats
+     * @return array<string, array{labels: array<int, mixed>, values: array<int, mixed>}>
+     */
+    private function buildHrChartData(bool $isAdmin, int $userId, array $departmentStats): array
+    {
+        $perJob = $this->hrScopedJobsQuery($isAdmin, $userId)
             ->withCount('applications')
             ->orderByDesc('applications_count')
             ->limit(8)
@@ -1561,7 +1839,7 @@ class PortalController extends Controller
             $dailyLabels[] = $date->format('M d');
         }
 
-        $trendRows = (clone $applicationsQuery)
+        $trendRows = $this->hrScopedApplicationsQuery($isAdmin, $userId)
             ->where('applied_at', '>=', now()->subDays(13)->startOfDay())
             ->get(['applied_at']);
 
@@ -1576,42 +1854,14 @@ class PortalController extends Controller
             }
         }
 
-        $currentWeek = (clone $applicationsQuery)
-            ->where('applied_at', '>=', now()->startOfWeek())
-            ->count();
-        $previousWeek = (clone $applicationsQuery)
-            ->whereBetween('applied_at', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()])
-            ->count();
-        $weeklyGrowth = $previousWeek > 0
-            ? round((($currentWeek - $previousWeek) / $previousWeek) * 100, 1)
-            : ($currentWeek > 0 ? 100.0 : 0.0);
-
         $qualificationRows = Education::query()
-            ->whereHas('applicant.applications.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
+            ->whereHas('applicant.applications.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
             ->get(['level']);
 
-        $qualificationMap = [
-            'Degree' => 0,
-            'Diploma' => 0,
-            'Masters' => 0,
-            'Other' => 0,
-        ];
-
-        foreach ($qualificationRows as $row) {
-            $level = strtolower((string) $row->level);
-            if (str_contains($level, 'master')) {
-                $qualificationMap['Masters']++;
-            } elseif (str_contains($level, 'diploma')) {
-                $qualificationMap['Diploma']++;
-            } elseif (str_contains($level, 'bachelor') || str_contains($level, 'degree')) {
-                $qualificationMap['Degree']++;
-            } else {
-                $qualificationMap['Other']++;
-            }
-        }
+        $qualificationMap = $this->buildHrQualificationDistribution($qualificationRows);
 
         $genderRows = Applicant::query()
-            ->whereHas('applications.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
+            ->whereHas('applications.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
             ->get(['gender']);
 
         $genderMap = [
@@ -1631,14 +1881,107 @@ class PortalController extends Controller
             }
         }
 
+        $aiRankBuckets = $this->buildHrAiRankBuckets($isAdmin, $userId);
+
+        return [
+            'applicationsPerJob' => [
+                'labels' => $perJob->pluck('title')->toArray(),
+                'values' => $perJob->pluck('applications_count')->toArray(),
+            ],
+            'applicantTrends' => [
+                'labels' => $dailyLabels,
+                'values' => array_values($dailyMap),
+            ],
+            'qualificationDistribution' => [
+                'labels' => array_keys($qualificationMap),
+                'values' => array_values($qualificationMap),
+            ],
+            'genderDistribution' => [
+                'labels' => array_keys($genderMap),
+                'values' => array_values($genderMap),
+            ],
+            'departmentPerformance' => [
+                'labels' => array_map(fn (array $row): string => $row['department'], $departmentStats),
+                'values' => array_map(fn (array $row): int => $row['count'], $departmentStats),
+            ],
+            'aiRankingDistribution' => [
+                'labels' => array_keys($aiRankBuckets),
+                'values' => array_values($aiRankBuckets),
+            ],
+        ];
+    }
+
+    /**
+     * @param iterable<int, object{level: mixed}> $rows
+     * @return array{Degree: int, Diploma: int, Masters: int, Other: int}
+     */
+    private function buildHrQualificationDistribution(iterable $rows): array
+    {
+        $qualificationMap = [
+            'Degree' => 0,
+            'Diploma' => 0,
+            'Masters' => 0,
+            'Other' => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $level = strtolower((string) $row->level);
+            if (str_contains($level, 'master')) {
+                $qualificationMap['Masters']++;
+            } elseif (str_contains($level, 'diploma')) {
+                $qualificationMap['Diploma']++;
+            } elseif (str_contains($level, 'bachelor') || str_contains($level, 'degree')) {
+                $qualificationMap['Degree']++;
+            } else {
+                $qualificationMap['Other']++;
+            }
+        }
+
+        return $qualificationMap;
+    }
+
+    /**
+     * @return array{90%+: int, 70-89%: int, Below 70%: int}
+     */
+    private function buildHrAiRankBuckets(bool $isAdmin, int $userId): array
+    {
+        $aiRankBuckets = [
+            '90%+' => 0,
+            '70-89%' => 0,
+            'Below 70%' => 0,
+        ];
+
+        $aiScores = AiScore::query()
+            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
+            ->pluck('match_percentage');
+
+        foreach ($aiScores as $score) {
+            $value = (float) $score;
+            if ($value >= 90) {
+                $aiRankBuckets['90%+']++;
+            } elseif ($value >= 70) {
+                $aiRankBuckets['70-89%']++;
+            } else {
+                $aiRankBuckets['Below 70%']++;
+            }
+        }
+
+        return $aiRankBuckets;
+    }
+
+    /**
+     * @return array<int, array{department: string, count: int}>
+     */
+    private function buildHrDepartmentStats(bool $isAdmin, int $userId): array
+    {
         $departmentRows = Job::query()
             ->selectRaw('department_id, COUNT(applications.id) as applicants_count')
             ->join('applications', 'applications.job_id', '=', 'jobs.id')
-            ->when(!$isAdmin, fn ($query) => $query->where('jobs.hr_officer_id', (int) $request->user()->id))
+            ->when(!$isAdmin, fn ($query) => $query->where('jobs.hr_officer_id', $userId))
             ->groupBy('department_id')
             ->get();
 
-        $departmentStats = $departmentRows->map(function ($row): array {
+        return $departmentRows->map(function ($row): array {
             $department = Department::query()->find($row->department_id);
 
             return [
@@ -1646,8 +1989,14 @@ class PortalController extends Controller
                 'count' => (int) $row->applicants_count,
             ];
         })->values()->all();
+    }
 
-        $recentApplications = (clone $applicationsQuery)
+    /**
+     * @return array<int, array{candidate: string, job: string, at: ?string}>
+     */
+    private function buildHrRecentApplications(bool $isAdmin, int $userId): array
+    {
+        return $this->hrScopedApplicationsQuery($isAdmin, $userId)
             ->with(['applicant.user', 'job'])
             ->latest('applied_at')
             ->limit(8)
@@ -1658,10 +2007,16 @@ class PortalController extends Controller
                 'at' => optional($application->applied_at)->format('Y-m-d H:i'),
             ])
             ->all();
+    }
 
-        $upcomingInterviews = Interview::query()
+    /**
+     * @return array<int, array{id: int, candidate: string, job: string, scheduled_at: ?string, mode: string, venue: string, meeting_link: string, status: string}>
+     */
+    private function buildHrUpcomingInterviews(bool $isAdmin, int $userId): array
+    {
+        return Interview::query()
             ->with(['application.applicant.user', 'application.job'])
-            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
+            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
             ->where('scheduled_at', '>=', now())
             ->orderBy('scheduled_at')
             ->limit(8)
@@ -1677,10 +2032,16 @@ class PortalController extends Controller
                 'status' => (string) ($interview->status ?? 'scheduled'),
             ])
             ->all();
+    }
 
-        $todayInterviews = Interview::query()
+    /**
+     * @return array<int, array{id: int, candidate: string, job: string, scheduled_at: ?string, status: string}>
+     */
+    private function buildHrTodayInterviews(bool $isAdmin, int $userId): array
+    {
+        return Interview::query()
             ->with(['application.applicant.user', 'application.job'])
-            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
+            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
             ->whereDate('scheduled_at', today())
             ->orderBy('scheduled_at')
             ->limit(5)
@@ -1693,13 +2054,13 @@ class PortalController extends Controller
                 'status' => (string) ($interview->status ?? 'scheduled'),
             ])
             ->all();
+    }
 
-        $interviewStatusRows = Interview::query()
-            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->get();
-
+    /**
+     * @return array{scheduled: int, invitation_sent: int, confirmed: int, completed: int, cancelled: int}
+     */
+    private function buildHrInterviewStatusMap(bool $isAdmin, int $userId): array
+    {
         $interviewStatusMap = [
             'scheduled' => 0,
             'invitation_sent' => 0,
@@ -1707,6 +2068,12 @@ class PortalController extends Controller
             'completed' => 0,
             'cancelled' => 0,
         ];
+
+        $interviewStatusRows = Interview::query()
+            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->get();
 
         foreach ($interviewStatusRows as $row) {
             $status = strtolower((string) $row->status);
@@ -1719,9 +2086,17 @@ class PortalController extends Controller
             }
         }
 
-        $topCandidates = AiScore::query()
+        return $interviewStatusMap;
+    }
+
+    /**
+     * @return array<int, array{name: string, score: float}>
+     */
+    private function buildHrTopCandidates(bool $isAdmin, int $userId): array
+    {
+        return AiScore::query()
             ->with(['application.applicant.user'])
-            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
+            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', $userId)))
             ->orderByDesc('match_percentage')
             ->limit(5)
             ->get()
@@ -1730,29 +2105,14 @@ class PortalController extends Controller
                 'score' => (float) $score->match_percentage,
             ])
             ->all();
+    }
 
-        $aiRankBuckets = [
-            '90%+' => 0,
-            '70-89%' => 0,
-            'Below 70%' => 0,
-        ];
-
-        $aiScores = AiScore::query()
-            ->whereHas('application.job', fn ($jobQuery) => $jobQuery->when(!$isAdmin, fn ($nested) => $nested->where('hr_officer_id', (int) $request->user()->id)))
-            ->pluck('match_percentage');
-
-        foreach ($aiScores as $score) {
-            $value = (float) $score;
-            if ($value >= 90) {
-                $aiRankBuckets['90%+']++;
-            } elseif ($value >= 70) {
-                $aiRankBuckets['70-89%']++;
-            } else {
-                $aiRankBuckets['Below 70%']++;
-            }
-        }
-
-        $vacancyManagement = (clone $jobsQuery)
+    /**
+     * @return array<int, array{id: int, title: string, status: string, applicants: int, deadline: string}>
+     */
+    private function buildHrVacancyManagement(bool $isAdmin, int $userId): array
+    {
+        return $this->hrScopedJobsQuery($isAdmin, $userId)
             ->withCount('applications')
             ->orderByDesc('created_at')
             ->limit(8)
@@ -1765,8 +2125,14 @@ class PortalController extends Controller
                 'deadline' => optional($job->application_deadline)->format('Y-m-d H:i') ?? 'N/A',
             ])
             ->all();
+    }
 
-        $smartApplicants = (clone $applicationsQuery)
+    /**
+     * @return array<int, array{name: string, job: string, score: float, status: string, skills: array<int, string>, education: string, experience_years: int, cv_available: bool}>
+     */
+    private function buildHrSmartApplicants(bool $isAdmin, int $userId): array
+    {
+        return $this->hrScopedApplicationsQuery($isAdmin, $userId)
             ->with(['applicant.user', 'applicant.skills', 'applicant.educations', 'applicant.experiences', 'job', 'aiScore'])
             ->latest('applied_at')
             ->limit(30)
@@ -1797,35 +2163,52 @@ class PortalController extends Controller
                 ];
             })
             ->all();
+    }
 
-        $notifications = Notification::query()
-            ->where('user_id', (int) $request->user()->id)
+    /**
+     * @return array<int, array{id: int, title: string, message: string, read: bool, at: ?string}>
+     */
+    private function buildHrNotifications(int $userId): array
+    {
+        return Notification::query()
+            ->where('user_id', $userId)
             ->latest()
             ->limit(8)
-            ->get(['title', 'message', 'created_at'])
+            ->get(['id', 'title', 'message', 'read_at', 'created_at'])
             ->map(fn ($item): array => [
+                'id' => (int) $item->id,
                 'title' => (string) $item->title,
                 'message' => (string) $item->message,
+                'read' => $item->read_at !== null,
                 'at' => optional($item->created_at)->diffForHumans(),
             ])
             ->all();
+    }
 
-        $unreadNotifications = Notification::query()
-            ->where('user_id', (int) $request->user()->id)
+    private function countHrUnreadNotifications(int $userId): int
+    {
+        return Notification::query()
+            ->where('user_id', $userId)
             ->whereNull('read_at')
             ->count();
+    }
 
-        $statusRows = (clone $applicationsQuery)
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->get();
-
+    /**
+     * @return array{pending: int, reviewed: int, rejected: int, shortlisted: int}
+     */
+    private function buildHrStatusOverview(bool $isAdmin, int $userId): array
+    {
         $statusMap = [
             'pending' => 0,
             'reviewed' => 0,
             'rejected' => 0,
             'shortlisted' => 0,
         ];
+
+        $statusRows = $this->hrScopedApplicationsQuery($isAdmin, $userId)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->get();
 
         foreach ($statusRows as $row) {
             $status = strtolower((string) $row->status);
@@ -1841,8 +2224,16 @@ class PortalController extends Controller
             }
         }
 
-        $activityLogs = AuditLog::query()
-            ->when(!$isAdmin, fn ($query) => $query->where('user_id', (int) $request->user()->id))
+        return $statusMap;
+    }
+
+    /**
+     * @return array<int, array{action: string, at: ?string}>
+     */
+    private function buildHrActivityLogs(bool $isAdmin, int $userId): array
+    {
+        return AuditLog::query()
+            ->when(!$isAdmin, fn ($query) => $query->where('user_id', $userId))
             ->latest()
             ->limit(8)
             ->get(['action', 'created_at'])
@@ -1851,9 +2242,15 @@ class PortalController extends Controller
                 'at' => optional($row->created_at)->diffForHumans(),
             ])
             ->all();
+    }
 
-        $loginLogs = LoginHistory::query()
-            ->when(!$isAdmin, fn ($query) => $query->where('user_id', (int) $request->user()->id))
+    /**
+     * @return array<int, array{user_id: int, ip: string, at: ?string}>
+     */
+    private function buildHrLoginLogs(bool $isAdmin, int $userId): array
+    {
+        return LoginHistory::query()
+            ->when(!$isAdmin, fn ($query) => $query->where('user_id', $userId))
             ->latest('logged_in_at')
             ->limit(8)
             ->get(['user_id', 'ip_address', 'logged_in_at'])
@@ -1863,50 +2260,6 @@ class PortalController extends Controller
                 'at' => optional($row->logged_in_at)->format('Y-m-d H:i'),
             ])
             ->all();
-
-        return [
-            'metrics' => $metrics,
-            'weeklyGrowth' => $weeklyGrowth,
-            'charts' => [
-                'applicationsPerJob' => [
-                    'labels' => $perJob->pluck('title')->toArray(),
-                    'values' => $perJob->pluck('applications_count')->toArray(),
-                ],
-                'applicantTrends' => [
-                    'labels' => $dailyLabels,
-                    'values' => array_values($dailyMap),
-                ],
-                'qualificationDistribution' => [
-                    'labels' => array_keys($qualificationMap),
-                    'values' => array_values($qualificationMap),
-                ],
-                'genderDistribution' => [
-                    'labels' => array_keys($genderMap),
-                    'values' => array_values($genderMap),
-                ],
-                'departmentPerformance' => [
-                    'labels' => array_map(fn (array $row): string => $row['department'], $departmentStats),
-                    'values' => array_map(fn (array $row): int => $row['count'], $departmentStats),
-                ],
-                'aiRankingDistribution' => [
-                    'labels' => array_keys($aiRankBuckets),
-                    'values' => array_values($aiRankBuckets),
-                ],
-            ],
-            'recentApplications' => $recentApplications,
-            'upcomingInterviews' => $upcomingInterviews,
-            'todayInterviews' => $todayInterviews,
-            'interviewStatusOverview' => $interviewStatusMap,
-            'topCandidates' => $topCandidates,
-            'vacancyManagement' => $vacancyManagement,
-            'smartApplicants' => $smartApplicants,
-            'notifications' => $notifications,
-            'unreadNotifications' => $unreadNotifications,
-            'statusOverview' => $statusMap,
-            'activityLogs' => $activityLogs,
-            'loginLogs' => $loginLogs,
-            'departmentStats' => $departmentStats,
-        ];
     }
 
     /**
@@ -1924,20 +2277,62 @@ class PortalController extends Controller
 
         $applicationIds = $applications->pluck('id')->all();
         $appliedJobIds = $applications->pluck('job_id')->all();
+        $latestApplication = $applications->first();
 
-        $notifications = Notification::query()
-            ->where('user_id', (int) $request->user()->id)
+        [$recommended, $recommendationsMeta] = $this->buildApplicantJobRecommendations($applicant, $appliedJobIds);
+        $statusStats = $this->buildApplicantStatusStats($applications);
+
+        return [
+            'myApplications' => $this->buildApplicantApplicationsList($applications),
+            'progress' => [
+                'current_status' => (string) ($latestApplication?->status ?? 'none'),
+                'steps' => $this->buildApplicationProgressSteps((string) ($latestApplication?->status ?? 'none')),
+            ],
+            'notifications' => $this->buildApplicantNotifications((int) $request->user()->id),
+            'recommendedJobs' => $recommended,
+            'recommendationsMeta' => $recommendationsMeta,
+            'profileCompletion' => $this->calculateApplicantProfileCompletion($applicant),
+            'upcomingInterviews' => $this->buildApplicantUpcomingInterviews($applicationIds),
+            'savedJobs' => $this->buildApplicantSavedJobs((int) $applicant->id),
+            'aiFeedback' => $this->buildApplicantAiFeedback($latestApplication),
+            'accountStats' => [
+                'total_applications' => $applications->count(),
+                'interviews_attended' => $this->countApplicantInterviewsAttended($applicationIds),
+                'success_rate' => $applications->count() > 0
+                    ? round(($statusStats['shortlisted'] / $applications->count()) * 100, 1)
+                    : 0.0,
+            ],
+            'statusOverview' => $statusStats,
+        ];
+    }
+
+    /**
+     * @return array<int, array{id: int, title: string, message: string, read: bool, at: ?string}>
+     */
+    private function buildApplicantNotifications(int $userId): array
+    {
+        return Notification::query()
+            ->where('user_id', $userId)
             ->latest()
             ->limit(8)
-            ->get(['title', 'message', 'created_at'])
+            ->get(['id', 'title', 'message', 'read_at', 'created_at'])
             ->map(fn ($item): array => [
+                'id' => (int) $item->id,
                 'title' => (string) $item->title,
                 'message' => (string) $item->message,
+                'read' => $item->read_at !== null,
                 'at' => optional($item->created_at)->diffForHumans(),
             ])
             ->all();
+    }
 
-        $upcomingInterviews = Interview::query()
+    /**
+     * @param array<int, int> $applicationIds
+     * @return array<int, array{id: int, job: string, scheduled_at: ?string, venue: string, mode: string, status: string, can_respond: bool}>
+     */
+    private function buildApplicantUpcomingInterviews(array $applicationIds): array
+    {
+        return Interview::query()
             ->with(['application.job'])
             ->whereIn('application_id', $applicationIds)
             ->where('scheduled_at', '>=', now())
@@ -1955,7 +2350,14 @@ class PortalController extends Controller
                 'can_respond' => in_array((string) $interview->status, ['scheduled', 'invitation_sent'], true),
             ])
             ->all();
+    }
 
+    /**
+     * @param array<int, int> $appliedJobIds
+     * @return array{0: array<int, array<string, mixed>>, 1: array{open_jobs_count: int, applied_jobs_count: int, mode: string}}
+     */
+    private function buildApplicantJobRecommendations(Applicant $applicant, array $appliedJobIds): array
+    {
         $analysis = $this->cvAnalysisService->analyzeApplicant($applicant);
 
         $applicantSkills = collect((array) ($analysis['skills'] ?? []))
@@ -2056,6 +2458,11 @@ class PortalController extends Controller
             $recommendationsMeta['mode'] = 'applied_fallback';
         }
 
+        return [$recommended, $recommendationsMeta];
+    }
+
+    private function calculateApplicantProfileCompletion(Applicant $applicant): int
+    {
         $completed = 0;
         $profileSignals = [
             !empty($applicant->phone),
@@ -2072,11 +2479,18 @@ class PortalController extends Controller
                 $completed++;
             }
         }
-        $profileCompletion = (int) round(($completed / max(count($profileSignals), 1)) * 100);
 
-        $savedJobs = SavedJob::query()
+        return (int) round(($completed / max(count($profileSignals), 1)) * 100);
+    }
+
+    /**
+     * @return array<int, array{job_id: int, title: string, deadline: ?string}>
+     */
+    private function buildApplicantSavedJobs(int $applicantId): array
+    {
+        return SavedJob::query()
             ->with('job')
-            ->where('applicant_id', $applicant->id)
+            ->where('applicant_id', $applicantId)
             ->latest()
             ->limit(8)
             ->get()
@@ -2086,63 +2500,65 @@ class PortalController extends Controller
                 'deadline' => optional($saved->job?->application_deadline)->format('Y-m-d'),
             ])
             ->all();
+    }
 
-        $latestApplication = $applications->first();
-        $aiFeedback = [];
-        if ($latestApplication?->aiScore) {
-            $missing = (array) ($latestApplication->aiScore->missing_skills ?? []);
-            $aiFeedback = [
-                'summary' => (string) ($latestApplication->aiScore->summary ?: 'Improve your CV by adding stronger achievements and role-specific skills.'),
-                'missing_skills' => $missing,
-            ];
+    /**
+     * @return array{}|array{summary: string, missing_skills: array<int, mixed>}
+     */
+    private function buildApplicantAiFeedback(?Application $latestApplication): array
+    {
+        if (!$latestApplication?->aiScore) {
+            return [];
         }
 
-        $statusStats = [
+        return [
+            'summary' => (string) ($latestApplication->aiScore->summary ?: 'Improve your CV by adding stronger achievements and role-specific skills.'),
+            'missing_skills' => (array) ($latestApplication->aiScore->missing_skills ?? []),
+        ];
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, Application> $applications
+     * @return array{pending: int, reviewed: int, rejected: int, shortlisted: int}
+     */
+    private function buildApplicantStatusStats(\Illuminate\Support\Collection $applications): array
+    {
+        return [
             'pending' => $applications->whereIn('status', ['submitted', 'pending', 'review', 'under_review', 'ai_processing'])->count(),
             'reviewed' => $applications->whereIn('status', ['reviewed', 'review', 'under_review'])->count(),
             'rejected' => $applications->where('status', 'rejected')->count(),
             'shortlisted' => $applications->where('status', 'shortlisted')->count(),
         ];
+    }
 
-        $interviewsAttended = Interview::query()
+    /**
+     * @param array<int, int> $applicationIds
+     */
+    private function countApplicantInterviewsAttended(array $applicationIds): int
+    {
+        return Interview::query()
             ->whereIn('application_id', $applicationIds)
             ->where('status', 'completed')
             ->count();
+    }
 
-        $successRate = $applications->count() > 0
-            ? round(($statusStats['shortlisted'] / $applications->count()) * 100, 1)
-            : 0.0;
-
-        return [
-            'myApplications' => $applications->take(10)->map(fn ($application): array => [
-                'id' => (int) $application->id,
-                'application_id' => (string) $application->application_id,
-                'job' => (string) ($application->job?->title ?? 'Unknown Job'),
-                'status' => (string) $application->status,
-                'applied_at' => optional($application->applied_at)->format('Y-m-d'),
-                'offer_status' => (string) ($application->offer_status ?? ''),
-                'offer_sent_at' => optional($application->offer_sent_at)->format('Y-m-d H:i'),
-                'onboarding_status' => (string) ($application->onboarding_status ?? ''),
-                'placement_status' => (string) ($application->placement_status ?? ''),
-            ])->all(),
-            'progress' => [
-                'current_status' => (string) ($latestApplication?->status ?? 'none'),
-                'steps' => $this->buildApplicationProgressSteps((string) ($latestApplication?->status ?? 'none')),
-            ],
-            'notifications' => $notifications,
-            'recommendedJobs' => $recommended,
-            'recommendationsMeta' => $recommendationsMeta,
-            'profileCompletion' => $profileCompletion,
-            'upcomingInterviews' => $upcomingInterviews,
-            'savedJobs' => $savedJobs,
-            'aiFeedback' => $aiFeedback,
-            'accountStats' => [
-                'total_applications' => $applications->count(),
-                'interviews_attended' => $interviewsAttended,
-                'success_rate' => $successRate,
-            ],
-            'statusOverview' => $statusStats,
-        ];
+    /**
+     * @param \Illuminate\Support\Collection<int, Application> $applications
+     * @return array<int, array{id: int, application_id: string, job: string, status: string, applied_at: ?string, offer_status: string, offer_sent_at: ?string, onboarding_status: string, placement_status: string}>
+     */
+    private function buildApplicantApplicationsList(\Illuminate\Support\Collection $applications): array
+    {
+        return $applications->take(10)->map(fn ($application): array => [
+            'id' => (int) $application->id,
+            'application_id' => (string) $application->application_id,
+            'job' => (string) ($application->job?->title ?? 'Unknown Job'),
+            'status' => (string) $application->status,
+            'applied_at' => optional($application->applied_at)->format('Y-m-d'),
+            'offer_status' => (string) ($application->offer_status ?? ''),
+            'offer_sent_at' => optional($application->offer_sent_at)->format('Y-m-d H:i'),
+            'onboarding_status' => (string) ($application->onboarding_status ?? ''),
+            'placement_status' => (string) ($application->placement_status ?? ''),
+        ])->all();
     }
 
     /**

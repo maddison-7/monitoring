@@ -28,8 +28,10 @@ class ProcessApplicationAiScore implements ShouldQueue
      */
     public array $backoff = [30, 120, 300];
 
-    public function __construct(private readonly int $applicationId)
-    {
+    public function __construct(
+        private readonly int $applicationId,
+        private readonly bool $silent = false
+    ) {
     }
 
     public function handle(
@@ -38,7 +40,7 @@ class ProcessApplicationAiScore implements ShouldQueue
         CandidateCommunicationService $candidateCommunicationService
     ): void {
         $application = Application::query()
-            ->with(['applicant.user', 'job', 'applicant.skills', 'applicant.educations', 'applicant.experiences', 'applicant.certificates'])
+            ->with(['applicant.user', 'job', 'applicant.skills', 'applicant.educations', 'applicant.experiences', 'applicant.certificates', 'applicant.projects', 'applicant.achievements'])
             ->find($this->applicationId);
 
         if (!$application instanceof Application || !$application->applicant || !$application->job) {
@@ -51,13 +53,31 @@ class ProcessApplicationAiScore implements ShouldQueue
             ['application_id' => (int) $application->id],
             [
                 'match_percentage' => $score['match_percentage'],
+                'fit_score' => $score['fit_score'] ?? null,
                 'recommendation_level' => $score['recommendation_level'],
                 'matched_skills' => $score['matched_skills'],
                 'missing_skills' => $score['missing_skills'],
                 'summary' => $score['summary'],
                 'model_name' => (string) config('services.gemini.model', 'local-ai-scoring'),
+                'skills_score' => $score['skills_score'] ?? null,
+                'experience_score' => $score['experience_score'] ?? null,
+                'education_score' => $score['education_score'] ?? null,
+                'gpa_score' => $score['gpa_score'] ?? null,
+                'strengths' => $score['strengths'] ?? [],
+                'weaknesses' => $score['weaknesses'] ?? [],
+                'risk_factors' => $score['risk_factors'] ?? [],
+                'hiring_advantages' => $score['hiring_advantages'] ?? [],
+                'explanation' => $score['explanation'] ?? null,
             ]
         );
+
+        if ($application->applicant->gpa === null && ($score['extracted_gpa'] ?? null) !== null) {
+            $application->applicant->update(['gpa' => $score['extracted_gpa']]);
+        }
+
+        if ($this->silent) {
+            return;
+        }
 
         $currentStatus = strtolower((string) $application->status);
         if (in_array($currentStatus, ['ai_processing', 'submitted', 'pending', 'under_review', 'reviewed'], true)) {

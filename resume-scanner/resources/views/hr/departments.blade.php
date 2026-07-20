@@ -8,8 +8,8 @@
 
 <div class="space-y-6">
     <section class="rc-card p-5">
-        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">Departments</h2>
-        <p class="text-sm text-muted mt-1">Department-level applicant distribution and workload snapshot.</p>
+        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ __('messages.departments') }}</h2>
+        <p class="text-sm text-muted mt-1">{{ __('messages.departments_help') }}</p>
     </section>
 
     <section class="rc-card p-5">
@@ -20,7 +20,7 @@
                     <span class="font-semibold text-slate-800 dark:text-slate-100">{{ number_format((int) $department['count']) }}</span>
                 </li>
             @empty
-                <li class="text-muted">No department data.</li>
+                <li class="text-muted">{{ __('messages.no_department_data') }}</li>
             @endforelse
         </ul>
     </section>

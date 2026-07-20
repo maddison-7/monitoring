@@ -122,9 +122,15 @@ class AuthController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
             'role' => ['required', 'string', Rule::in(self::ROLES)],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'terms_accepted' => ['required', 'accepted'],
+        ], [
+            'email.email' => 'Please enter a valid email address.',
+            'email.unique' => 'This email address is already registered.',
+            'terms_accepted.required' => 'You must agree to the Terms and Conditions to register.',
+            'terms_accepted.accepted' => 'You must agree to the Terms and Conditions to register.',
         ]);
 
         $user = User::create([
@@ -134,6 +140,7 @@ class AuthController extends Controller
             'email' => $validated['email'],
             'role' => $validated['role'],
             'password' => Hash::make($validated['password']),
+            'terms_accepted_at' => now(),
         ]);
 
         if ($validated['role'] === 'applicant') {

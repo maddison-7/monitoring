@@ -53,8 +53,7 @@ class AdminController extends Controller
 
         $stalePublishedJobs = Job::query()
             ->with('hrOfficer:id,name')
-            ->where('status', 'published')
-            ->where('application_deadline', '<', now())
+            ->publishedExpired()
             ->orderBy('application_deadline')
             ->limit(15)
             ->get()
@@ -148,8 +147,7 @@ class AdminController extends Controller
     public function closeExpiredJobs(Request $request): RedirectResponse
     {
         $closed = Job::query()
-            ->where('status', 'published')
-            ->where('application_deadline', '<', now())
+            ->publishedExpired()
             ->update(['status' => 'closed']);
 
         return redirect()->route('admin.governance')
@@ -737,10 +735,30 @@ class AdminController extends Controller
             ->where('updated_at', '>=', now()->subDays(30))
             ->count();
 
+        $loginHistoryColumns = [
+            ['key' => 'user', 'label' => 'User'],
+            ['key' => 'role', 'label' => 'Role'],
+            ['key' => 'ip', 'label' => 'IP Address'],
+            ['key' => 'time', 'label' => 'Logged In At'],
+        ];
+
+        $loginHistoryRows = LoginHistory::query()
+            ->with('user:id,name,role')
+            ->latest('logged_in_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (LoginHistory $login): array => [
+                'user' => (string) ($login->user?->name ?? 'Unknown'),
+                'role' => (string) ($login->user?->role ?? 'N/A'),
+                'ip' => (string) ($login->ip_address ?? 'N/A'),
+                'time' => (string) $login->logged_in_at?->format('Y-m-d H:i'),
+            ])
+            ->all();
+
         return $this->renderModule(
-            'Audit Logs',
             'Audit',
-            'Inspect recent, traceable recruiter actions generated from live platform events.',
+            'Audit',
+            'Inspect login history, user activities, system actions, data changes, recruiter actions, and admin actions generated from live platform events.',
             [
                 ['title' => 'Action timeline', 'description' => 'Events include job creation and resume processing with actor attribution.'],
                 ['title' => 'Compliance readiness', 'description' => 'Use this chronological log to support reviews and investigations.'],
@@ -749,12 +767,13 @@ class AdminController extends Controller
             'audit',
             [
                 ['label' => 'Recent events', 'value' => (string) count($timeline)],
+                ['label' => 'Login events', 'value' => (string) LoginHistory::query()->count()],
                 ['label' => 'Job events', 'value' => (string) AuditLog::query()->where('action', 'like', 'job.%')->count()],
                 ['label' => 'Application events', 'value' => (string) AuditLog::query()->where('action', 'like', 'application.%')->count()],
                 ['label' => 'Settings events (30d)', 'value' => (string) $settingsEventsCount],
             ],
-            [],
-            [],
+            $loginHistoryColumns,
+            $loginHistoryRows,
             $timeline
         );
     }
@@ -832,7 +851,7 @@ class AdminController extends Controller
         $avgScore = round((float) (AiScore::query()->avg('match_percentage') ?? 0), 1);
 
         $isGeminiConfigured = (string) config('services.gemini.api_key', '') !== '';
-        $model = (string) config('services.gemini.model', 'gemini-2.0-flash');
+        $model = (string) config('services.gemini.model', 'gemini-2.5-flash');
 
         $windowStart = Carbon::now()->subDays(6)->startOfDay();
 

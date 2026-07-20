@@ -28,8 +28,8 @@ class RolePanelController extends Controller
         $dashboard = $this->buildAdminDashboardData($request);
 
         return view('admin.dashboard', [
-            'pageTitle' => 'Admin Panel',
-            'pageHeading' => 'System Administrator Dashboard',
+            'pageTitle' => __('messages.admin_panel'),
+            'pageHeading' => __('messages.admin_panel'),
             'activeNav' => 'dashboard',
             'dashboard' => $dashboard,
         ]);
@@ -45,12 +45,53 @@ class RolePanelController extends Controller
      */
     private function buildAdminDashboardData(Request $request): array
     {
-        $totalUsers = User::query()->count();
-        $totalRecruiters = User::query()->where('role', 'recruiter')->count();
-        $totalApplicants = User::query()->where('role', 'applicant')->count();
-        $totalJobs = JobPosting::query()->count();
-        $totalApplications = Application::query()->count();
+        $totals = $this->countAdminTotals();
+        $systemSettings = AppSetting::query()->pluck('value', 'key');
+        $storageUsed = $this->calculateStorageUsedPercent();
 
+        return [
+            'metrics' => [
+                'Total Users' => $totals['users'],
+                'Active Jobs' => $totals['jobs'],
+                'Applications' => $totals['applications'],
+                'Recruiters' => $totals['recruiters'],
+            ],
+            'systemMetrics' => $this->buildAdminSystemMetrics($totals),
+            'charts' => $this->buildAdminChartData(),
+            'departments' => $this->buildAdminDepartmentRows(),
+            'vacancyOversight' => $this->buildAdminVacancyOversight(),
+            'interviews' => $this->buildAdminTodayInterviews(),
+            'interviewStatus' => $this->buildAdminInterviewStatusMap(),
+            'backupSummary' => $this->buildAdminBackupSummary($storageUsed),
+            'notifications' => $this->buildAdminNotifications(),
+            'securityLogs' => $this->buildAdminSecurityLogs(),
+            'auditLogs' => $this->buildAdminAuditLogs(),
+            'workflow' => $this->adminRecruitmentWorkflow(),
+            'systemHealth' => $this->buildAdminSystemHealth($systemSettings, $storageUsed),
+            'settings' => $this->buildAdminScoringSettings($systemSettings),
+            'recentApplications' => $this->buildAdminRecentApplications(),
+        ];
+    }
+
+    /**
+     * @return array{users: int, recruiters: int, applicants: int, jobs: int, applications: int}
+     */
+    private function countAdminTotals(): array
+    {
+        return [
+            'users' => User::query()->count(),
+            'recruiters' => User::query()->where('role', 'recruiter')->count(),
+            'applicants' => User::query()->where('role', 'applicant')->count(),
+            'jobs' => JobPosting::query()->count(),
+            'applications' => Application::query()->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, array{labels: array<int, mixed>, values: array<int, mixed>}>
+     */
+    private function buildAdminChartData(): array
+    {
         $applicationsPerDepartmentRows = Application::query()
             ->join('job_postings', 'job_postings.id', '=', 'applications.job_id')
             ->selectRaw("COALESCE(NULLIF(job_postings.department, ''), 'Unassigned') as department, COUNT(applications.id) as total")
@@ -82,7 +123,51 @@ class RolePanelController extends Controller
                 }
             });
 
-        $qualificationRows = Education::query()->get(['level']);
+        $qualificationMap = $this->buildQualificationDistribution(Education::query()->get(['level']));
+
+        $aiRankBuckets = [
+            '90%+' => 0,
+            '70-89%' => 0,
+            'Below 70%' => 0,
+        ];
+
+        foreach (AiScore::query()->pluck('match_percentage') as $score) {
+            $value = (float) $score;
+            if ($value >= 90) {
+                $aiRankBuckets['90%+']++;
+            } elseif ($value >= 70) {
+                $aiRankBuckets['70-89%']++;
+            } else {
+                $aiRankBuckets['Below 70%']++;
+            }
+        }
+
+        return [
+            'applicationsPerDepartment' => [
+                'labels' => $applicationsPerDepartmentRows->pluck('department')->toArray(),
+                'values' => $applicationsPerDepartmentRows->pluck('total')->toArray(),
+            ],
+            'recruitmentTrends' => [
+                'labels' => $applicationTrendLabels,
+                'values' => array_values($applicationTrendMap),
+            ],
+            'qualificationDistribution' => [
+                'labels' => array_keys($qualificationMap),
+                'values' => array_values($qualificationMap),
+            ],
+            'aiRankingDistribution' => [
+                'labels' => array_keys($aiRankBuckets),
+                'values' => array_values($aiRankBuckets),
+            ],
+        ];
+    }
+
+    /**
+     * @param iterable<int, object{level: mixed}> $rows
+     * @return array{Degree: int, Diploma: int, Masters: int, Other: int}
+     */
+    private function buildQualificationDistribution(iterable $rows): array
+    {
         $qualificationMap = [
             'Degree' => 0,
             'Diploma' => 0,
@@ -90,7 +175,7 @@ class RolePanelController extends Controller
             'Other' => 0,
         ];
 
-        foreach ($qualificationRows as $row) {
+        foreach ($rows as $row) {
             $level = strtolower((string) $row->level);
             if (str_contains($level, 'master')) {
                 $qualificationMap['Masters']++;
@@ -103,34 +188,36 @@ class RolePanelController extends Controller
             }
         }
 
-        $aiScoreRows = AiScore::query()->pluck('match_percentage');
-        $aiRankBuckets = [
-            '90%+' => 0,
-            '70-89%' => 0,
-            'Below 70%' => 0,
-        ];
+        return $qualificationMap;
+    }
 
-        foreach ($aiScoreRows as $score) {
-            $value = (float) $score;
-            if ($value >= 90) {
-                $aiRankBuckets['90%+']++;
-            } elseif ($value >= 70) {
-                $aiRankBuckets['70-89%']++;
-            } else {
-                $aiRankBuckets['Below 70%']++;
-            }
-        }
-
-        $departmentRows = Department::query()
+    /**
+     * @return array<int, array{department: string, applications: int, jobs: int}>
+     */
+    private function buildAdminDepartmentRows(): array
+    {
+        return Department::query()
             ->leftJoin('job_postings', 'job_postings.department', '=', 'departments.name')
             ->leftJoin('applications', 'applications.job_id', '=', 'job_postings.id')
             ->selectRaw('departments.name as department, COUNT(DISTINCT applications.id) as applications_total, COUNT(DISTINCT job_postings.id) as jobs_total')
             ->groupBy('departments.name')
             ->orderByDesc('applications_total')
             ->limit(8)
-            ->get();
+            ->get()
+            ->map(fn ($row): array => [
+                'department' => (string) $row->department,
+                'applications' => (int) $row->applications_total,
+                'jobs' => (int) $row->jobs_total,
+            ])
+            ->all();
+    }
 
-        $vacancyOversight = JobPosting::query()
+    /**
+     * @return array<int, array{title: string, department: string, candidates: int, created: ?string}>
+     */
+    private function buildAdminVacancyOversight(): array
+    {
+        return JobPosting::query()
             ->withCount('candidates')
             ->orderByDesc('candidates_count')
             ->limit(8)
@@ -142,51 +229,46 @@ class RolePanelController extends Controller
                 'created' => optional($job->created_at)->format('Y-m-d'),
             ])
             ->all();
+    }
 
-        $recentApplications = Application::query()
-            ->with(['applicant.user', 'job'])
-            ->latest('applied_at')
-            ->limit(6)
-            ->get()
-            ->map(fn (Application $application): array => [
-                'event' => (string) ($application->applicant?->user?->name ?? 'Unknown Applicant') . ' applied for ' . (string) ($application->job?->title ?? 'Unknown Job'),
-                'time' => optional($application->applied_at)->diffForHumans(),
-                'details' => 'Application ID ' . (string) ($application->application_id ?? $application->id),
-                'actor' => 'Applicant Portal',
-            ])
-            ->all();
-
-        $recentAudits = AuditLog::query()
-            ->with('user:id,name,role')
-            ->latest()
-            ->limit(6)
-            ->get()
-            ->map(fn (AuditLog $log): array => [
-                'event' => (string) $log->action,
-                'time' => optional($log->created_at)->diffForHumans(),
-                'details' => (string) ($log->user?->name ?? 'System'),
-                'actor' => (string) ($log->user?->role ?? 'system'),
-            ])
-            ->all();
-
-        $todayInterviews = Interview::query()
+    /**
+     * @return array<int, array{candidate: string, job: string, scheduled_at: ?string, mode: string, venue: string, status: string}>
+     */
+    private function buildAdminTodayInterviews(): array
+    {
+        return Interview::query()
             ->with(['application.applicant.user', 'application.job'])
             ->whereDate('scheduled_at', today())
             ->orderBy('scheduled_at')
             ->limit(8)
-            ->get();
+            ->get()
+            ->map(fn (Interview $interview): array => [
+                'candidate' => (string) ($interview->application?->applicant?->user?->name ?? 'Unknown Candidate'),
+                'job' => (string) ($interview->application?->job?->title ?? 'Unknown Job'),
+                'scheduled_at' => optional($interview->scheduled_at)->format('Y-m-d H:i'),
+                'mode' => strtoupper((string) $interview->mode),
+                'venue' => (string) ($interview->venue ?? 'N/A'),
+                'status' => (string) ($interview->status ?? 'scheduled'),
+            ])
+            ->all();
+    }
 
-        $interviewStatusRows = Interview::query()
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->get();
-
+    /**
+     * @return array{scheduled: int, invitation_sent: int, confirmed: int, completed: int}
+     */
+    private function buildAdminInterviewStatusMap(): array
+    {
         $interviewStatusMap = [
             'scheduled' => 0,
             'invitation_sent' => 0,
             'confirmed' => 0,
             'completed' => 0,
         ];
+
+        $interviewStatusRows = Interview::query()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->get();
 
         foreach ($interviewStatusRows as $row) {
             $status = strtolower((string) $row->status);
@@ -198,43 +280,114 @@ class RolePanelController extends Controller
             }
         }
 
-        $notificationRows = Notification::query()->latest()->limit(6)->get();
+        return $interviewStatusMap;
+    }
 
-        $securityLogs = LoginHistory::query()
+    /**
+     * @return array<int, array{title: string, message: string, time: ?string}>
+     */
+    private function buildAdminNotifications(): array
+    {
+        return Notification::query()->latest()->limit(6)->get()
+            ->map(fn (Notification $notification): array => [
+                'title' => (string) $notification->title,
+                'message' => (string) $notification->message,
+                'time' => optional($notification->created_at)->diffForHumans(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{user: string, role: string, ip: string, time: ?string}>
+     */
+    private function buildAdminSecurityLogs(): array
+    {
+        return LoginHistory::query()
             ->with('user:id,name,role')
             ->latest('logged_in_at')
             ->limit(6)
-            ->get();
+            ->get()
+            ->map(fn (LoginHistory $history): array => [
+                'user' => (string) ($history->user?->name ?? 'Unknown User'),
+                'role' => (string) ($history->user?->role ?? 'unknown'),
+                'ip' => (string) ($history->ip_address ?? 'N/A'),
+                'time' => optional($history->logged_in_at)->diffForHumans(),
+            ])
+            ->all();
+    }
 
-        $recentSystemLogs = $recentAudits;
+    /**
+     * @return array<int, array{event: string, time: ?string, details: string, actor: string}>
+     */
+    private function buildAdminAuditLogs(): array
+    {
+        return AuditLog::query()
+            ->with('user:id,name,role')
+            ->latest()
+            ->limit(6)
+            ->get()
+            ->map(fn (AuditLog $log): array => [
+                'event' => (string) $log->action,
+                'time' => optional($log->created_at)->diffForHumans(),
+                'details' => (string) ($log->user?->name ?? 'System'),
+                'actor' => (string) ($log->user?->role ?? 'system'),
+            ])
+            ->all();
+    }
 
-        $systemSettings = AppSetting::query()->pluck('value', 'key');
-
+    private function calculateStorageUsedPercent(): float
+    {
         $storageTotal = @disk_total_space(storage_path()) ?: 0;
         $storageFree = @disk_free_space(storage_path()) ?: 0;
-        $storageUsed = $storageTotal > 0 ? round((1 - ($storageFree / $storageTotal)) * 100, 1) : 0;
 
-        $systemHealth = [
-            ['label' => 'Server Status', 'value' => 'Online', 'tone' => 'bg-emerald-100 text-emerald-700'],
-            ['label' => 'Database', 'value' => 'Connected', 'tone' => 'bg-blue-100 text-blue-700'],
-            ['label' => 'Evaluation Engine', 'value' => !empty($systemSettings['openai_api_key'] ?? null) ? 'Active' : 'Configured', 'tone' => 'bg-violet-100 text-violet-700'],
-            ['label' => 'Storage', 'value' => $storageUsed . '% Used', 'tone' => 'bg-amber-100 text-amber-700'],
+        return $storageTotal > 0 ? round((1 - ($storageFree / $storageTotal)) * 100, 1) : 0;
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string, tone: string}>
+     */
+    private function buildAdminSystemHealth(\Illuminate\Support\Collection $systemSettings, float $storageUsed): array
+    {
+        return [
+            ['label' => __('messages.server_status'), 'value' => __('messages.online'), 'tone' => 'bg-emerald-100 text-emerald-700'],
+            ['label' => __('messages.database'), 'value' => __('messages.connected'), 'tone' => 'bg-blue-100 text-blue-700'],
+            ['label' => __('messages.evaluation_engine'), 'value' => !empty($systemSettings['openai_api_key'] ?? null) ? __('messages.active') : __('messages.configured'), 'tone' => 'bg-violet-100 text-violet-700'],
+            ['label' => __('messages.storage'), 'value' => $storageUsed . '% ' . __('messages.used'), 'tone' => 'bg-amber-100 text-amber-700'],
         ];
+    }
 
-        $backupSummary = [
+    /**
+     * @return array{last_backup: string, status: string, storage: float}
+     */
+    private function buildAdminBackupSummary(float $storageUsed): array
+    {
+        return [
             'last_backup' => (string) (AppSetting::getValue('backup_last_run', 'Not yet recorded') ?? 'Not yet recorded'),
             'status' => (string) (AppSetting::getValue('backup_status', 'Healthy') ?? 'Healthy'),
             'storage' => $storageUsed,
         ];
+    }
 
-        $systemMetrics = [
-            ['label' => 'Total Users', 'value' => number_format($totalUsers)],
-            ['label' => 'Active Jobs', 'value' => number_format($totalJobs)],
-            ['label' => 'Applications', 'value' => number_format($totalApplications)],
-            ['label' => 'Recruiters', 'value' => number_format($totalRecruiters)],
+    /**
+     * @param array{users: int, recruiters: int, applicants: int, jobs: int, applications: int} $totals
+     * @return array<int, array{label: string, value: string}>
+     */
+    private function buildAdminSystemMetrics(array $totals): array
+    {
+        return [
+            ['label' => __('messages.total_users'), 'value' => number_format($totals['users'])],
+            ['label' => __('messages.active_jobs'), 'value' => number_format($totals['jobs'])],
+            ['label' => __('messages.applications'), 'value' => number_format($totals['applications'])],
+            ['label' => __('messages.recruiters'), 'value' => number_format($totals['recruiters'])],
         ];
+    }
 
-        $recruitmentWorkflow = [
+    /**
+     * @return array<int, string>
+     */
+    private function adminRecruitmentWorkflow(): array
+    {
+        return [
             'Manage Recruiters',
             'Configure Departments',
             'Monitor Recruitment Activities',
@@ -243,81 +396,38 @@ class RolePanelController extends Controller
             'Generate Reports',
             'Maintain System',
         ];
+    }
 
+    /**
+     * @param \Illuminate\Support\Collection<string, mixed> $systemSettings
+     * @return array{shortlist_threshold: int, scoring_skills_weight: int, scoring_experience_weight: int, scoring_education_weight: int}
+     */
+    private function buildAdminScoringSettings(\Illuminate\Support\Collection $systemSettings): array
+    {
         return [
-            'metrics' => [
-                'Total Users' => $totalUsers,
-                'Active Jobs' => $totalJobs,
-                'Applications' => $totalApplications,
-                'Recruiters' => $totalRecruiters,
-            ],
-            'systemMetrics' => $systemMetrics,
-            'charts' => [
-                'applicationsPerDepartment' => [
-                    'labels' => $applicationsPerDepartmentRows->pluck('department')->toArray(),
-                    'values' => $applicationsPerDepartmentRows->pluck('total')->toArray(),
-                ],
-                'recruitmentTrends' => [
-                    'labels' => $applicationTrendLabels,
-                    'values' => array_values($applicationTrendMap),
-                ],
-                'qualificationDistribution' => [
-                    'labels' => array_keys($qualificationMap),
-                    'values' => array_values($qualificationMap),
-                ],
-                'aiRankingDistribution' => [
-                    'labels' => array_keys($aiRankBuckets),
-                    'values' => array_values($aiRankBuckets),
-                ],
-            ],
-            'departments' => $departmentRows->map(fn ($row): array => [
-                'department' => (string) $row->department,
-                'applications' => (int) $row->applications_total,
-                'jobs' => (int) $row->jobs_total,
-            ])->all(),
-            'vacancyOversight' => $vacancyOversight,
-            'interviews' => $todayInterviews->map(fn (Interview $interview): array => [
-                'candidate' => (string) ($interview->application?->applicant?->user?->name ?? 'Unknown Candidate'),
-                'job' => (string) ($interview->application?->job?->title ?? 'Unknown Job'),
-                'scheduled_at' => optional($interview->scheduled_at)->format('Y-m-d H:i'),
-                'mode' => strtoupper((string) $interview->mode),
-                'venue' => (string) ($interview->venue ?? 'N/A'),
-                'status' => (string) ($interview->status ?? 'scheduled'),
-            ])->all(),
-            'interviewStatus' => $interviewStatusMap,
-            'backupSummary' => $backupSummary,
-            'notifications' => $notificationRows->map(fn (Notification $notification): array => [
-                'title' => (string) $notification->title,
-                'message' => (string) $notification->message,
-                'time' => optional($notification->created_at)->diffForHumans(),
-            ])->all(),
-            'securityLogs' => $securityLogs->map(fn (LoginHistory $history): array => [
-                'user' => (string) ($history->user?->name ?? 'Unknown User'),
-                'role' => (string) ($history->user?->role ?? 'unknown'),
-                'ip' => (string) ($history->ip_address ?? 'N/A'),
-                'time' => optional($history->logged_in_at)->diffForHumans(),
-            ])->all(),
-            'auditLogs' => $recentSystemLogs,
-            'workflow' => $recruitmentWorkflow,
-            'systemHealth' => $systemHealth,
-            'settings' => [
-                'shortlist_threshold' => (int) ($systemSettings['shortlist_threshold'] ?? 75),
-                'scoring_skills_weight' => (int) ($systemSettings['scoring_skills_weight'] ?? 50),
-                'scoring_experience_weight' => (int) ($systemSettings['scoring_experience_weight'] ?? 30),
-                'scoring_education_weight' => (int) ($systemSettings['scoring_education_weight'] ?? 20),
-            ],
-            'recentApplications' => Application::query()
-                ->with(['applicant.user', 'job'])
-                ->latest('applied_at')
-                ->limit(8)
-                ->get()
-                ->map(fn (Application $application): array => [
-                    'candidate' => (string) ($application->applicant?->user?->name ?? 'Unknown Applicant'),
-                    'job' => (string) ($application->job?->title ?? 'Unknown Job'),
-                    'time' => optional($application->applied_at)->diffForHumans(),
-                ])
-                ->all(),
+            'shortlist_threshold' => (int) ($systemSettings['shortlist_threshold'] ?? 75),
+            'scoring_skills_weight' => (int) ($systemSettings['scoring_skills_weight'] ?? 50),
+            'scoring_experience_weight' => (int) ($systemSettings['scoring_experience_weight'] ?? 30),
+            'scoring_education_weight' => (int) ($systemSettings['scoring_education_weight'] ?? 20),
         ];
+    }
+
+    /**
+     * @return array<int, array{candidate: string, job: string, time: ?string}>
+     */
+    private function buildAdminRecentApplications(): array
+    {
+        return Application::query()
+            ->with(['applicant.user', 'job'])
+            ->latest('applied_at')
+            ->limit(8)
+            ->get()
+            ->map(fn (Application $application): array => [
+                'candidate' => (string) ($application->applicant?->user?->name ?? 'Unknown Applicant'),
+                'job' => (string) ($application->job?->title ?? 'Unknown Job'),
+                'time' => optional($application->applied_at)->diffForHumans(),
+            ])
+            ->all();
     }
 
     private function renderPanel(Request $request, string $role): View

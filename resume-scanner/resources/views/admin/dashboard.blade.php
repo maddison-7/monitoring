@@ -12,9 +12,9 @@
         <div class="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-800 px-6 py-6 text-white">
             <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
                 <div class="max-w-3xl">
-                    <div class="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]">System Controller</div>
-                    <h2 class="mt-4 text-3xl sm:text-4xl font-bold tracking-tight">Admin Panel</h2>
-                    <p class="mt-3 text-blue-100 leading-7">The highest control center of the recruitment platform. Monitor users, recruiters, departments, security, analytics, reports, and system health from one corporate dashboard.</p>
+                    <div class="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]">{{ __('messages.system_controller') }}</div>
+                    <h2 class="mt-4 text-3xl sm:text-4xl font-bold tracking-tight">{{ __('messages.admin_panel') }}</h2>
+                    <p class="mt-3 text-blue-100 leading-7">{{ __('messages.admin_panel_intro') }}</p>
                 </div>
             </div>
         </div>
@@ -41,8 +41,8 @@
     <section class="admin-card p-5" id="analytics">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Recruitment Analytics</h3>
-                <p class="text-sm text-adminMuted">Applications per department, trends, qualification statistics, and AI ranking distributions.</p>
+                <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">{{ __('messages.recruitment_analytics') }}</h3>
+                <p class="text-sm text-adminMuted">{{ __('messages.admin_analytics_help') }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('admin.reports.export.csv') }}" class="admin-btn">CSV</a>
@@ -52,10 +52,10 @@
         </div>
 
         <div class="mt-5 grid gap-4 xl:grid-cols-2">
-            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">Applications by Department</p><div class="h-64"><canvas id="deptApplicationsChart"></canvas></div></div>
-            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">Recruitment Trends</p><div class="h-64"><canvas id="trendChart"></canvas></div></div>
-            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">Qualification Statistics</p><div class="h-64"><canvas id="qualificationChart"></canvas></div></div>
-            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">AI Match Distribution</p><div class="h-64"><canvas id="aiChart"></canvas></div></div>
+            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">{{ __('messages.applications_by_department') }}</p><div class="h-64"><canvas id="deptApplicationsChart"></canvas></div></div>
+            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">{{ __('messages.recruitment_trends_chart') }}</p><div class="h-64"><canvas id="trendChart"></canvas></div></div>
+            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">{{ __('messages.qualification_statistics') }}</p><div class="h-64"><canvas id="qualificationChart"></canvas></div></div>
+            <div class="admin-card p-4"><p class="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-100">{{ __('messages.ai_match_distribution') }}</p><div class="h-64"><canvas id="aiChart"></canvas></div></div>
         </div>
     </section>
 </div>
@@ -94,7 +94,7 @@
         type: 'line',
         data: {
             labels: data?.charts?.recruitmentTrends?.labels || [],
-            datasets: [{ label: 'Applications', data: data?.charts?.recruitmentTrends?.values || [], borderColor: '#14B8A6', backgroundColor: 'rgba(20,184,166,0.16)', fill: true, tension: 0.35 }]
+            datasets: [{ label: @json(__('messages.applications')), data: data?.charts?.recruitmentTrends?.values || [], borderColor: '#14B8A6', backgroundColor: 'rgba(20,184,166,0.16)', fill: true, tension: 0.35 }]
         },
         options: options()
     });

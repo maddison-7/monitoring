@@ -3,11 +3,34 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentVerificationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\RolePanelController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+
+Route::get('/locale/{locale}', function (string $locale) {
+    $supportedLocales = array_keys(config('app.supported_locales', ['en' => 'English']));
+
+    if (!in_array($locale, $supportedLocales, true)) {
+        abort(404);
+    }
+
+    session(['locale' => $locale]);
+
+    if (Auth::check() && Schema::hasColumn('users', 'locale')) {
+        $user = Auth::user();
+        /** @var \App\Models\User $user */
+        $user->locale = $locale;
+        $user->save();
+    }
+
+    return back();
+})->name('locale.switch');
 
 Route::view('/', 'welcome')->name('home');
 
@@ -81,6 +104,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/interviews', [PortalController::class, 'applicantInterviews'])->name('interviews');
         Route::post('/interviews/{interview}/respond', [PortalController::class, 'applicantRespondInterview'])->name('interviews.respond');
         Route::get('/notifications', [PortalController::class, 'applicantNotifications'])->name('notifications');
+        Route::post('/notifications/clear', [NotificationController::class, 'clearRead'])->name('notifications.clear');
         Route::get('/downloads', [PortalController::class, 'applicantDownloads'])->name('downloads');
         Route::get('/profile', [PortalController::class, 'applicantProfile'])->name('profile');
         Route::put('/profile', [PortalController::class, 'updateApplicantProfile'])->name('profile.update');
@@ -90,6 +114,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/jobs/{job}/apply', [PortalController::class, 'applicantApplyForm'])->name('jobs.apply');
         Route::post('/jobs/{job}/apply', [PortalController::class, 'applicantApplySubmit'])->name('jobs.apply.submit');
         Route::post('/chatbot/upload-cv', [PortalController::class, 'applicantChatbotUploadCv'])->name('chatbot.upload-cv');
+        Route::post('/chatbot/message', [PortalController::class, 'applicantChatbotMessage'])->name('chatbot.message');
         Route::post('/jobs/{job}/save', [PortalController::class, 'toggleSavedJob'])->name('jobs.save');
         Route::post('/applications/{application}/offer/respond', [PortalController::class, 'applicantRespondOffer'])->name('applications.offer.respond');
         Route::get('/downloads/application-slip/{application}', [PortalController::class, 'downloadApplicationSlip'])->name('downloads.application-slip');
@@ -103,6 +128,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/interviews', [PortalController::class, 'hrInterviews'])->name('interviews');
         Route::get('/analytics-reports', [PortalController::class, 'hrAnalyticsReports'])->name('analytics.reports');
         Route::get('/notifications', [PortalController::class, 'hrNotifications'])->name('notifications');
+        Route::post('/notifications/clear', [NotificationController::class, 'clearRead'])->name('notifications.clear');
+        Route::post('/chatbot/message', [PortalController::class, 'hrChatbotMessage'])->name('chatbot.message');
         Route::get('/departments', [PortalController::class, 'hrDepartments'])->name('departments');
         Route::get('/jobs', [PortalController::class, 'hrJobs'])->name('jobs.index');
         Route::get('/jobs/create', [PortalController::class, 'hrJobsCreate'])->name('jobs.create');
@@ -111,13 +138,13 @@ Route::middleware('auth')->group(function () {
         Route::put('/jobs/{job}', [PortalController::class, 'hrJobsUpdate'])->name('jobs.update');
         Route::delete('/jobs/{job}', [PortalController::class, 'hrJobsDelete'])->name('jobs.delete');
         Route::get('/candidate-ranking', [PortalController::class, 'hrCandidateRanking'])->name('candidate.ranking');
+        Route::get('/applications/{application}/ai-results', [PortalController::class, 'hrAiResults'])->name('applications.ai-results');
+        Route::post('/applications/{application}/rescan', [PortalController::class, 'hrRescanApplication'])->name('applications.rescan');
         Route::get('/applications/{application}/cv', [PortalController::class, 'hrApplicationCv'])->name('applications.cv');
         Route::post('/applications/{application}/status', [PortalController::class, 'hrUpdateApplicationStatus'])->name('applications.status');
         Route::post('/applications/{application}/shortlist', [PortalController::class, 'hrShortlistCandidate'])->name('applications.shortlist');
         Route::post('/applications/{application}/interviews', [PortalController::class, 'hrScheduleInterview'])->name('applications.interviews.schedule');
         Route::post('/applications/{application}/offer', [PortalController::class, 'hrSendOffer'])->name('applications.offer.send');
-        Route::post('/applications/{application}/onboarding', [PortalController::class, 'hrUpdateOnboarding'])->name('applications.onboarding.update');
-        Route::post('/applications/{application}/placement/close', [PortalController::class, 'hrClosePlacement'])->name('applications.placement.close');
         Route::post('/interviews/{interview}/result', [PortalController::class, 'hrUpdateInterviewResult'])->name('interviews.result');
         Route::get('/reports/export/csv', [PortalController::class, 'hrExportCsv'])->name('reports.export.csv');
         Route::get('/reports/export/excel', [PortalController::class, 'hrExportExcel'])->name('reports.export.excel');
@@ -166,3 +193,4 @@ Route::middleware('auth')->group(function () {
 
 Route::view('/terms', 'terms')->name('terms');
 Route::view('/privacy', 'privacy')->name('privacy');
+Route::get('/verify/{documentId}', [DocumentVerificationController::class, 'show'])->name('documents.verify');

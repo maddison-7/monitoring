@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $pageTitle ?? 'Recruiter Panel' }} - Smart Recruitment</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ $pageTitle ?? __('messages.recruiter_panel') }} - Smart Recruitment</title>
 
     <script>
         (function () {
@@ -262,6 +263,33 @@
         .rc-btn-primary:hover { filter: brightness(0.95); }
 
         html.dark .rc-btn { border-color: #1E3A8A; background: #1E3A8A40; color: #93C5FD; }
+
+        /* ── Chat bot ── */
+        #chat-fab {
+            position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 60;
+            width: 3.25rem; height: 3.25rem; border-radius: 999px;
+            background: linear-gradient(135deg, #1D4ED8, #2563EB);
+            color: #fff; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 6px 24px rgba(29,78,216,.4);
+            transition: transform .15s, box-shadow .15s;
+        }
+        #chat-fab:hover { transform: scale(1.08); box-shadow: 0 8px 30px rgba(29,78,216,.55); }
+
+        #chat-window {
+            position: fixed; bottom: 5.5rem; right: 1.5rem; z-index: 60;
+            width: 320px; background: #fff; border-radius: 1.25rem;
+            box-shadow: 0 12px 40px rgba(15,23,42,.15);
+            display: none; flex-direction: column; overflow: hidden;
+        }
+        html.dark #chat-window { background: #1E293B; }
+        #chat-window.show { display: flex; }
+
+        #chat-messages { flex: 1; padding: .75rem; overflow-y: auto; max-height: 260px; }
+        #chat-messages .bot-msg { background: #EFF6FF; border-radius: .75rem .75rem .75rem 0; padding: .6rem .75rem; font-size: .8rem; margin-bottom: .5rem; max-width: 85%; }
+        html.dark #chat-messages .bot-msg { background: #1E3A8A30; color: #93C5FD; }
+        #chat-input { border: none; border-top: 1px solid #E2E8F0; padding: .6rem .75rem; font-size: .8rem; outline: none; background: transparent; color: inherit; width: 100%; }
+        html.dark #chat-input { border-color: #334155; }
     </style>
 </head>
 <body class="h-full">
@@ -281,24 +309,24 @@
         <div class="flex items-center gap-3">
             <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold text-sm flex items-center justify-center">RS</div>
             <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-white/70">Recruiter Panel</p>
+                <p class="text-xs uppercase tracking-[0.18em] text-white/70">{{ __('messages.recruiter_panel') }}</p>
                 <h1 class="font-bold text-white leading-tight">Smart Recruitment</h1>
             </div>
         </div>
     </div>
 
     <nav class="px-3 py-4 space-y-1 text-sm flex-1 overflow-y-auto">
-        <p class="px-3 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">Main Menu</p>
-        <a class="rc-sidebar-link {{ $active === 'dashboard' ? 'active' : '' }}" href="{{ route('hr.dashboard') }}">Dashboard</a>
-        <a class="rc-sidebar-link {{ in_array($active, ['hr.jobs', 'jobs', 'jobs.index'], true) ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">Vacancy Management</a>
-        <a class="rc-sidebar-link {{ in_array($active, ['hr.ranking', 'hr.candidate.ranking'], true) ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">Applicants</a>
-        <a class="rc-sidebar-link {{ $active === 'interviews' ? 'active' : '' }}" href="{{ route('hr.interviews') }}">Interviews</a>
-        <a class="rc-sidebar-link {{ $active === 'analytics' ? 'active' : '' }}" href="{{ route('hr.analytics.reports') }}">Analytics & Reports</a>
-        <a class="rc-sidebar-link {{ $active === 'notifications' ? 'active' : '' }}" href="{{ route('hr.notifications') }}">Notifications @if($notifCount > 0)<span class="rc-badge">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>@endif</a>
-        <a class="rc-sidebar-link {{ $active === 'departments' ? 'active' : '' }}" href="{{ route('hr.departments') }}">Departments</a>
-        <a class="rc-sidebar-link {{ $active === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">Settings</a>
+        <p class="px-3 mb-2 text-[.65rem] uppercase tracking-widest text-white/60 font-semibold">{{ __('messages.main_menu') }}</p>
+        <a class="rc-sidebar-link {{ $active === 'dashboard' ? 'active' : '' }}" href="{{ route('hr.dashboard') }}">{{ __('messages.dashboard') }}</a>
+        <a class="rc-sidebar-link {{ in_array($active, ['hr.jobs', 'jobs', 'jobs.index'], true) ? 'active' : '' }}" href="{{ route('hr.jobs.index') }}">{{ __('messages.vacancy_management') }}</a>
+        <a class="rc-sidebar-link {{ in_array($active, ['hr.ranking', 'hr.candidate.ranking'], true) ? 'active' : '' }}" href="{{ route('hr.candidate.ranking') }}">{{ __('messages.applicants') }}</a>
+        <a class="rc-sidebar-link {{ $active === 'interviews' ? 'active' : '' }}" href="{{ route('hr.interviews') }}">{{ __('messages.interviews') }}</a>
+        <a class="rc-sidebar-link {{ $active === 'analytics' ? 'active' : '' }}" href="{{ route('hr.analytics.reports') }}">{{ __('messages.analytics_reports') }}</a>
+        <a class="rc-sidebar-link {{ $active === 'notifications' ? 'active' : '' }}" href="{{ route('hr.notifications') }}">{{ __('messages.notifications') }} @if($notifCount > 0)<span class="rc-badge">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>@endif</a>
+        <a class="rc-sidebar-link {{ $active === 'departments' ? 'active' : '' }}" href="{{ route('hr.departments') }}">{{ __('messages.departments') }}</a>
+        <a class="rc-sidebar-link {{ $active === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">{{ __('messages.settings') }}</a>
         <form method="POST" action="{{ route('logout') }}">@csrf
-            <button type="submit" class="rc-sidebar-link w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+            <button type="submit" class="rc-sidebar-link w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">{{ __('messages.logout') }}</button>
         </form>
     </nav>
 
@@ -333,16 +361,18 @@
 
         <div class="hidden md:flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 px-3 py-2 min-w-[18rem]">
             <svg class="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
-            <input type="text" id="rc-quick-search" placeholder="Quick search candidates, jobs..." class="bg-transparent outline-none text-sm w-full text-slate-700 dark:text-slate-200 placeholder:text-muted" />
+            <input type="text" id="rc-quick-search" placeholder="{{ __('messages.quick_search_placeholder') }}" class="bg-transparent outline-none text-sm w-full text-slate-700 dark:text-slate-200 placeholder:text-muted" />
         </div>
 
         <div class="ml-auto flex items-center gap-2">
             @if(session('impersonator_id'))
                 <form method="POST" action="{{ route('admin.impersonation.leave') }}">
                     @csrf
-                    <button type="submit" class="h-10 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100">Return to Admin</button>
+                    <button type="submit" class="h-10 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100">{{ __('messages.return_to_admin') }}</button>
                 </form>
             @endif
+
+            @include('partials.language-switcher')
 
             <button id="rc-theme-btn" class="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800" aria-label="Toggle theme">
                 <svg class="h-5 w-5 mx-auto dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -374,9 +404,9 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ $user?->email }}</p>
                     </div>
                     <div class="mt-2 space-y-1">
-                        <a href="{{ route('settings') }}" class="block rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Profile & Settings</a>
+                        <a href="{{ route('settings') }}" class="block rounded-xl px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">{{ __('messages.profile_settings') }}</a>
                         <form method="POST" action="{{ route('logout') }}">@csrf
-                            <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+                            <button type="submit" class="w-full text-left rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{{ __('messages.logout') }}</button>
                         </form>
                     </div>
                 </div>
@@ -385,15 +415,42 @@
     </header>
 
     <main class="flex-1 px-4 sm:px-6 py-6">
+        @if(session('success'))
+            <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                {{ session('success') }}
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                {{ session('error') }}
+            </div>
+        @endif
         @yield('content')
     </main>
 
     <footer class="px-4 sm:px-6 lg:px-8 py-4 border-t border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
         <div class="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between text-muted">
-            <p>&copy; {{ now()->year }} Smart Recruitment. All rights reserved.</p>
-            <p>Recruiter operations workspace.</p>
+            <p>&copy; {{ now()->year }} Smart Recruitment. {{ __('messages.all_rights_reserved_sentence') }}</p>
+            <p>{{ __('messages.recruiter_operations_workspace') }}</p>
         </div>
     </footer>
+</div>
+
+{{-- ── Chat Bot FAB ── --}}
+<button id="chat-fab" aria-label="Open AI recruitment assistant">
+    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+</button>
+
+<div id="chat-window" role="dialog" aria-label="AI Recruitment Assistant">
+    <div class="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-700 to-blue-800 text-white">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.07 4.93A10 10 0 114.93 19.07"/></svg>
+        <span class="text-sm font-semibold">AI Recruitment Assistant</span>
+        <button id="chat-close" type="button" class="ml-auto opacity-80 hover:opacity-100" aria-label="Close chat">✕</button>
+    </div>
+    <div id="chat-messages">
+        <div class="bot-msg">👋 Hi {{ $user?->name }}! Ask me about your jobs, candidate pipeline, or AI recommendations.</div>
+    </div>
+    <input id="chat-input" type="text" placeholder="Ask something..." autocomplete="off" />
 </div>
 
 <script>
@@ -452,6 +509,71 @@
         if (profileWrap && profileMenu && !profileWrap.contains(event.target)) {
             profileMenu.classList.add('hidden');
             profileBtn?.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    /* ── Chat bot ── */
+    const chatFab    = document.getElementById('chat-fab');
+    const chatWindow = document.getElementById('chat-window');
+    const chatClose  = document.getElementById('chat-close');
+    const chatInput  = document.getElementById('chat-input');
+    const chatMsgs   = document.getElementById('chat-messages');
+
+    const addMsg = (text, type) => {
+        const div = document.createElement('div');
+        div.className = type === 'user'
+            ? 'text-right mb-2 text-xs text-slate-600 dark:text-slate-400'
+            : 'bot-msg';
+        div.textContent = text;
+        chatMsgs?.appendChild(div);
+        if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    };
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const chatApiUrl = '{{ route('hr.chatbot.message') }}';
+
+    const sendChatQuestion = async (question) => {
+        addMsg(question, 'user');
+        chatInput.value = '';
+
+        const loading = document.createElement('div');
+        loading.className = 'bot-msg bot-loading';
+        loading.textContent = '⏳ Thinking...';
+        chatMsgs?.appendChild(loading);
+        if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+
+        try {
+            const response = await fetch(chatApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ question }),
+            });
+
+            const data = await response.json();
+            loading.remove();
+
+            if (!response.ok || typeof data.reply !== 'string') {
+                addMsg('AI support could not generate an answer right now. Please try again.', 'bot');
+                return;
+            }
+
+            addMsg(data.reply, 'bot');
+        } catch (error) {
+            loading.remove();
+            addMsg('There was a problem reaching AI support. Please try again later.', 'bot');
+            console.error(error);
+        }
+    };
+
+    chatFab?.addEventListener('click', () => chatWindow?.classList.toggle('show'));
+    chatClose?.addEventListener('click', () => chatWindow?.classList.remove('show'));
+    chatInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && chatInput.value.trim()) {
+            sendChatQuestion(chatInput.value.trim());
         }
     });
 })();

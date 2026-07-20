@@ -22,6 +22,7 @@ class Applicant extends Model
         'city',
         'country',
         'bio',
+        'gpa',
         'languages_json',
         'cv_path',
         'cv_hash',
@@ -77,5 +78,15 @@ class Applicant extends Model
     public function savedJobs(): HasMany
     {
         return $this->hasMany(SavedJob::class);
+    }
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    public function achievements(): HasMany
+    {
+        return $this->hasMany(Achievement::class);
     }
 }

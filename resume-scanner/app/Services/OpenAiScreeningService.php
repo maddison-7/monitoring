@@ -12,7 +12,7 @@ use Throwable;
 
 class OpenAiScreeningService
 {
-    private const DEFAULT_MODEL = 'gemini-2.0-flash';
+    private const DEFAULT_MODEL = 'gemini-2.5-flash';
 
     private const DEFAULT_WEIGHTS = [
         'scoring_skills_weight' => 50,
@@ -300,8 +300,41 @@ class OpenAiScreeningService
             return $this->heuristicParse($processedText['normalized']);
         }
 
-        $prompt = "Extract candidate profile from this resume text. Respond with JSON only and include keys: full_name (string), email (string|null), phone (string|null), skills (array of strings), years_of_experience (number), summary (string). Resume text: {$processedText['normalized']}";
-        $result = $this->callGeminiJson($prompt, $apiKey);
+        $prompt = <<<PROMPT
+            You are an expert resume parser. Read the resume text below the way an experienced recruiter would
+            and extract a factual candidate profile. Only extract what is actually stated or clearly implied in
+            the text — never invent a name, skill, or number that is not supported by the text.
+
+            For skills: include both explicitly listed skills and skills clearly demonstrated through described
+            work (e.g. a bullet point describing building a REST API implies "api"), using concise, canonical
+            skill names (e.g. "javascript" not "JS programming language").
+
+            For years_of_experience: infer the candidate's total relevant professional experience from dates,
+            job history, or explicit statements ("5 years of experience"). If genuinely not determinable, use 0.
+
+            For gpa: extract the candidate's GPA as a plain number on a 4.0 scale if stated anywhere (e.g. "GPA:
+            3.8/4.0", "CGPA 3.5", "3.7 GPA"), converting to a 4.0 scale if a different scale is given. If no GPA
+            is mentioned, return null.
+
+            Resume text:
+            {$processedText['normalized']}
+            PROMPT;
+
+        $parseSchema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'full_name' => ['type' => 'STRING'],
+                'email' => ['type' => 'STRING', 'nullable' => true],
+                'phone' => ['type' => 'STRING', 'nullable' => true],
+                'skills' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+                'years_of_experience' => ['type' => 'NUMBER'],
+                'gpa' => ['type' => 'NUMBER', 'nullable' => true],
+                'summary' => ['type' => 'STRING'],
+            ],
+            'required' => ['full_name', 'skills', 'years_of_experience', 'summary'],
+        ];
+
+        $result = $this->callGeminiJson($prompt, $apiKey, $parseSchema);
 
         if (!is_array($result)) {
             return $this->heuristicParse($processedText['normalized']);
@@ -329,7 +362,10 @@ class OpenAiScreeningService
         $experienceScore = $this->scoreExperience($years, (string) ($jobPosting->seniority ?? ''));
         $jobEducationContext = $this->preprocessText((string) $jobPosting->requirements . ' ' . (string) $jobPosting->about);
         $jobGpaRequirement = $this->extractGpaFromText($jobEducationContext['normalized']);
-        $candidateGpa = $this->extractGpaFromText($candidateProfile['normalized']);
+        $parsedGpa = Arr::get($parsedCandidate, 'gpa');
+        $candidateGpa = is_numeric($parsedGpa)
+            ? max(0.0, min(4.0, (float) $parsedGpa))
+            : $this->extractGpaFromText($candidateProfile['normalized']);
         $educationScore = $this->scoreEducation($jobEducationContext, $candidateProfile, $jobGpaRequirement, $candidateGpa);
         $gpaScore = $jobGpaRequirement !== null
             ? $this->scoreGpaMatch($jobGpaRequirement, $candidateGpa)
@@ -360,8 +396,53 @@ class OpenAiScreeningService
             return $this->buildScorePayload($localScore, $matched, $missing, $baseBreakdown);
         }
 
-        $prompt = "You are an ATS evaluator with strict semantic filtering. Return strict JSON only with keys: match_score (integer 0-100), matched_skills (array of strings), missing_skills (array of strings), overall_assessment (short string), recommendation (one of: Shortlisted, Review, Rejected), hard_constraints_passed (boolean), missing_must_have_skills (array of strings). Rules: enforce must-have constraints; focus on skills, years of experience, education, and GPA when present; reduce false keyword matches by using role context. Shortlisted = 75-100 (strong fit), Review = 40-74 (potential fit), Rejected = 0-39 (weak fit). Job title: {$jobPosting->title}. Seniority: {$jobPosting->seniority}. Job requirements: {$jobPosting->requirements}. Job skills: " . json_encode($jobSkills) . ". Must-have skills: " . json_encode($mustHaveSkills) . ". Candidate parsed profile: " . json_encode($parsedCandidate) . ". Resume text: {$anonymizedText} . Local reference score: {$localScore}";
-        $aiResult = $this->callGeminiJson($prompt, $apiKey);
+        $prompt = <<<PROMPT
+            You are an expert ATS recruiter and job evaluator running a real, consequential hiring assessment —
+            be rigorous and honest, not diplomatic filler.
+
+            Think like a human recruiter, step by step, before producing your answer:
+            1. Compare the candidate's actual demonstrated skills (not just keyword overlap) against the job's
+               required and must-have skills. A skill only counts as matched if the candidate profile or resume
+               text actually shows evidence of it.
+            2. Judge experience relevance and depth against the job's seniority level, not just years as a
+               number — 5 years in an unrelated field is not the same as 5 years directly relevant.
+            3. Weigh education and GPA against what the job expects, if anything is stated.
+            4. Decide whether every must-have skill is genuinely covered. If any must-have skill is missing,
+               this is a hard blocker regardless of how good the rest of the profile looks.
+            5. Form one clear, decisive overall judgment — do not hedge. If the fit is weak, say exactly why
+               (name the missing skills/gaps). If the fit is strong, cite exactly what makes it strong.
+
+            Ground every word in the actual job and candidate data below. Never invent a skill, number, or fact
+            that isn't present in the data. Do not add fields or commentary outside the JSON response.
+
+            Job title: {$jobPosting->title}
+            Seniority: {$jobPosting->seniority}
+            Job requirements: {$jobPosting->requirements}
+            Job skills: {$this->jsonForPrompt($jobSkills)}
+            Must-have skills: {$this->jsonForPrompt($mustHaveSkills)}
+            Candidate parsed profile: {$this->jsonForPrompt($parsedCandidate)}
+            Resume text (anonymized): {$anonymizedText}
+            Deterministic reference score (calibration only): {$localScore}
+            PROMPT;
+
+        $scoreSchema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'match_score' => ['type' => 'INTEGER'],
+                'matched_skills' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+                'missing_skills' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+                'overall_assessment' => ['type' => 'STRING'],
+                'recommendation' => ['type' => 'STRING', 'enum' => ['Shortlisted', 'Review', 'Rejected']],
+                'hard_constraints_passed' => ['type' => 'BOOLEAN'],
+                'missing_must_have_skills' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+            ],
+            'required' => [
+                'match_score', 'matched_skills', 'missing_skills', 'overall_assessment',
+                'recommendation', 'hard_constraints_passed', 'missing_must_have_skills',
+            ],
+        ];
+
+        $aiResult = $this->callGeminiJson($prompt, $apiKey, $scoreSchema);
 
         if (!is_array($aiResult)) {
             return $this->buildScorePayload($localScore, $matched, $missing, $baseBreakdown);
@@ -373,7 +454,7 @@ class OpenAiScreeningService
         $aiHardPassed = (bool) Arr::get($aiResult, 'hard_constraints_passed', $hardConstraint['passed']);
         $aiMissingMust = $this->normalizeSkillOutput((array) Arr::get($aiResult, 'missing_must_have_skills', $hardConstraint['missing_must_have']));
 
-        $finalScore = (int) round(($localScore * 0.65) + ($aiScore * 0.35));
+        $finalScore = (int) round(($localScore * 0.55) + ($aiScore * 0.45));
         $finalScore = max(0, min(100, $finalScore));
 
         if (!$aiHardPassed || $aiMissingMust !== []) {
@@ -448,18 +529,38 @@ class OpenAiScreeningService
             ];
         })->values()->all();
 
-        $prompt = 'Rank the candidates from best to worst fit for the job. Respond with strict JSON only: {"ordered_candidate_ids": [int, ...]}. Include each candidate id exactly once. Job data: '
-            . json_encode([
+        $prompt = <<<PROMPT
+            You are a senior recruiter ranking shortlisted candidates for a single role, best fit first. Do not
+            just re-sort by match_score — actually compare each candidate's skills, experience relevance, and
+            profile against the job below, the way a human recruiter reviewing a shortlist would, and break ties
+            or reorder where the numeric score alone doesn't capture the real difference in fit (e.g. one
+            candidate covers a critical skill the other lacks, or has more directly relevant experience).
+
+            Job:
+            {$this->jsonForPrompt([
                 'title' => $jobPosting->title,
                 'department' => $jobPosting->department,
                 'seniority' => $jobPosting->seniority,
                 'requirements' => $jobPosting->requirements,
                 'skills' => $jobPosting->skills_json,
-            ])
-            . '. Candidates: '
-            . json_encode($candidatePayload);
+            ])}
 
-        $ranking = $this->callGeminiJson($prompt, $apiKey);
+            Candidates:
+            {$this->jsonForPrompt($candidatePayload)}
+
+            Include every candidate id exactly once in ordered_candidate_ids.
+            PROMPT;
+
+        $rankSchema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'ordered_candidate_ids' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
+                'ranking_reasoning' => ['type' => 'STRING'],
+            ],
+            'required' => ['ordered_candidate_ids'],
+        ];
+
+        $ranking = $this->callGeminiJson($prompt, $apiKey, $rankSchema);
         $orderedIds = collect((array) Arr::get($ranking, 'ordered_candidate_ids', []))
             ->map(fn ($id): int => (int) $id)
             ->filter(fn (int $id): bool => $id > 0)
@@ -1006,47 +1107,47 @@ class OpenAiScreeningService
         return (int) round(max(0, min(100, $score)));
     }
 
-    private function callGeminiJson(string $prompt, string $apiKey): ?array
+    private function callGeminiJson(string $prompt, string $apiKey, ?array $schema = null): ?array
     {
+        // A single Gemini call (with "thinking" enabled on 2.5-flash) can take 40s+.
+        // PHP's own max_execution_time (often 30s under Apache/mod_php) would otherwise
+        // kill this request before the HTTP client's own timeout ever gets a chance to.
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
+
         $model = (string) config('services.gemini.model', self::DEFAULT_MODEL);
         $baseUrl = rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
 
-        try {
-            $response = Http::timeout(45)
-                ->withHeaders([
-                    'Content-Type' => 'application/json',
-                ])
-                ->withQueryParameters(['key' => $apiKey])
-                ->post($baseUrl . '/models/' . rawurlencode($model) . ':generateContent', [
-                    'contents' => [
-                        [
-                            'role' => 'user',
-                            'parts' => [
-                                ['text' => 'You are a strict JSON generator for ATS resume screening and ranking. Return JSON only.'],
-                                ['text' => $prompt],
-                            ],
-                        ],
-                    ],
-                    'generationConfig' => [
-                        'temperature' => 0.2,
-                        'maxOutputTokens' => 900,
-                        'responseMimeType' => 'application/json',
-                    ],
-                ]);
-        } catch (Throwable) {
-            Log::warning('Gemini API request failed before response.', [
-                'exception' => 'request_exception',
-            ]);
+        $generationConfig = [
+            'temperature' => 0.25,
+            'maxOutputTokens' => 3072,
+            'responseMimeType' => 'application/json',
+        ];
 
-            return null;
+        if ($schema !== null) {
+            $generationConfig['responseSchema'] = $schema;
         }
 
-        if (!$response->successful()) {
-            Log::warning('Gemini API request returned non-success status.', [
-                'status' => $response->status(),
-                'body' => mb_substr((string) $response->body(), 0, 600),
-            ]);
+        $response = $this->sendGeminiRequest(
+            $baseUrl . '/models/' . rawurlencode($model) . ':generateContent',
+            $apiKey,
+            [
+                'contents' => [
+                    [
+                        'role' => 'user',
+                        'parts' => [
+                            ['text' => 'You are an expert ATS recruiter and strict JSON generator for resume screening and ranking. Return JSON only, matching the required schema exactly.'],
+                            ['text' => $prompt],
+                        ],
+                    ],
+                ],
+                'generationConfig' => $generationConfig,
+            ],
+            'ATS screening'
+        );
 
+        if ($response === null) {
             return null;
         }
 
@@ -1157,12 +1258,16 @@ class OpenAiScreeningService
         preg_match('/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i', $sourceText, $emailMatch);
         preg_match('/(?:\+?\d[\d\s().-]{7,}\d)/', $sourceText, $phoneMatch);
 
+        $gpaValue = Arr::get($payload, 'gpa');
+        $gpa = is_numeric($gpaValue) ? max(0.0, min(4.0, round((float) $gpaValue, 2))) : $this->extractGpaFromText($sourceText);
+
         return [
             'full_name' => (string) Arr::get($payload, 'full_name', Arr::get($payload, 'name', Arr::get($payload, 'candidate_name', 'Candidate'))),
             'email' => Arr::get($payload, 'email', $emailMatch[1] ?? null),
             'phone' => Arr::get($payload, 'phone', $phoneMatch[0] ?? null),
             'skills' => $skills,
             'years_of_experience' => max(0, $years),
+            'gpa' => $gpa,
             'summary' => (string) Arr::get($payload, 'summary', Arr::get($payload, 'profile_summary', mb_substr($sourceText, 0, 300))),
         ];
     }
@@ -1312,5 +1417,71 @@ class OpenAiScreeningService
             $score >= 40 => 'Review',
             default => 'Rejected',
         };
+    }
+
+    private function jsonForPrompt(array $data): string
+    {
+        return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    /**
+     * Sends the Gemini request, automatically retrying once if the API responds with a
+     * transient 429 (rate limit) status — Gemini's free tier caps requests per minute, and
+     * a short burst of chat/scoring activity can trip it. Honors the API's suggested
+     * retry-after delay, capped to keep the overall request time reasonable.
+     *
+     * @param array<string, mixed> $body
+     */
+    private function sendGeminiRequest(string $url, string $apiKey, array $body, string $logLabel, int $maxAttempts = 2): ?\Illuminate\Http\Client\Response
+    {
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $response = Http::timeout(60)
+                    ->withOptions(['verify' => storage_path('certs/cacert.pem')])
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->withQueryParameters(['key' => $apiKey])
+                    ->post($url, $body);
+            } catch (Throwable $exception) {
+                Log::warning("{$logLabel} Gemini request failed before response.", [
+                    'attempt' => $attempt,
+                    'exception' => $exception->getMessage(),
+                ]);
+
+                return null;
+            }
+
+            if ($response->successful()) {
+                return $response;
+            }
+
+            if ($response->status() === 429 && $attempt < $maxAttempts) {
+                $delaySeconds = $this->extractRetryDelaySeconds((string) $response->body());
+                Log::warning("{$logLabel} Gemini request rate-limited, retrying shortly.", [
+                    'attempt' => $attempt,
+                    'retry_after_seconds' => $delaySeconds,
+                ]);
+                sleep($delaySeconds);
+                continue;
+            }
+
+            Log::warning("{$logLabel} Gemini request returned non-success status.", [
+                'attempt' => $attempt,
+                'status' => $response->status(),
+                'body' => mb_substr((string) $response->body(), 0, 600),
+            ]);
+
+            return null;
+        }
+
+        return null;
+    }
+
+    private function extractRetryDelaySeconds(string $responseBody): int
+    {
+        if (preg_match('/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/', $responseBody, $matches) === 1) {
+            return max(1, min(8, (int) ceil((float) $matches[1])));
+        }
+
+        return 4;
     }
 }

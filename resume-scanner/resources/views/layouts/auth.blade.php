@@ -127,6 +127,7 @@
                         <a href="{{ route('home') }}#features" class="rounded-full px-4 py-2 text-slateSoft hover:bg-white hover:text-ink transition">Features</a>
                         <a href="{{ route('home') }}#workflow" class="rounded-full px-4 py-2 text-slateSoft hover:bg-white hover:text-ink transition">Workflow</a>
                     @endunless
+                    @include('partials.language-switcher')
                     <button type="button" data-theme-toggle class="rounded-full px-4 py-2 text-slateSoft hover:bg-white hover:text-ink transition">Dark</button>
                     @unless (!empty($hideTopNavAuthLinks))
                         @yield('auth-nav')
@@ -139,10 +140,16 @@
                     <a href="{{ route('home') }}#features" class="rounded-xl border border-line bg-white px-3 py-2 text-center text-slateSoft">Features</a>
                     <a href="{{ route('home') }}#workflow" class="rounded-xl border border-line bg-white px-3 py-2 text-center text-slateSoft">Workflow</a>
                     <a href="{{ route('login') }}" class="rounded-xl border border-line bg-white px-3 py-2 text-center text-slateSoft">Login</a>
+                    <div class="col-span-2 flex justify-center">
+                        @include('partials.language-switcher')
+                    </div>
                     <button type="button" data-theme-toggle class="rounded-xl border border-line bg-white px-3 py-2 text-slateSoft">Dark</button>
                 </div>
             @else
                 <div class="mt-3 sm:hidden grid grid-cols-1 gap-2 text-sm font-medium">
+                    <div class="flex justify-center">
+                        @include('partials.language-switcher')
+                    </div>
                     <button type="button" data-theme-toggle class="rounded-xl border border-line bg-white px-3 py-2 text-slateSoft">Dark</button>
                 </div>
             @endunless

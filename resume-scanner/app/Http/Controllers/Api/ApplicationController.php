@@ -11,6 +11,7 @@ use App\Services\AuditLogService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ApplicationController extends Controller
 {
@@ -89,12 +90,26 @@ class ApplicationController extends Controller
         AiScore::query()->create([
             'application_id' => $application->id,
             'match_percentage' => $scorePayload['match_percentage'],
+            'fit_score' => $scorePayload['fit_score'] ?? null,
             'recommendation_level' => $scorePayload['recommendation_level'],
             'matched_skills' => $scorePayload['matched_skills'],
             'missing_skills' => $scorePayload['missing_skills'],
             'summary' => $scorePayload['summary'],
             'model_name' => (string) config('services.gemini.model', 'local-ai-scoring'),
+            'skills_score' => $scorePayload['skills_score'] ?? null,
+            'experience_score' => $scorePayload['experience_score'] ?? null,
+            'education_score' => $scorePayload['education_score'] ?? null,
+            'gpa_score' => $scorePayload['gpa_score'] ?? null,
+            'strengths' => $scorePayload['strengths'] ?? [],
+            'weaknesses' => $scorePayload['weaknesses'] ?? [],
+            'risk_factors' => $scorePayload['risk_factors'] ?? [],
+            'hiring_advantages' => $scorePayload['hiring_advantages'] ?? [],
+            'explanation' => $scorePayload['explanation'] ?? null,
         ]);
+
+        if ($applicant->gpa === null && ($scorePayload['extracted_gpa'] ?? null) !== null) {
+            $applicant->update(['gpa' => $scorePayload['extracted_gpa']]);
+        }
 
         $this->notificationService->notify(
             $request->user()->id,
@@ -151,22 +166,23 @@ class ApplicationController extends Controller
             'min_score' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'skill' => ['nullable', 'string'],
             'education_level' => ['nullable', 'string'],
+            'top_n' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $applications = Application::query()
+        $query = Application::query()
             ->where('job_id', (int) $validated['job_id'])
             ->with(['applicant.user:id,name,email', 'applicant.educations', 'applicant.skills', 'aiScore'])
-            ->when(!empty($validated['status']), fn ($query) => $query->where('status', $validated['status']))
-            ->when(isset($validated['min_score']), function ($query) use ($validated): void {
-                $query->whereHas('aiScore', fn ($scoreQuery) => $scoreQuery->where('match_percentage', '>=', (float) $validated['min_score']));
+            ->when(!empty($validated['status']), fn ($q) => $q->where('status', $validated['status']))
+            ->when(isset($validated['min_score']), function ($q) use ($validated): void {
+                $q->whereHas('aiScore', fn ($scoreQuery) => $scoreQuery->where('match_percentage', '>=', (float) $validated['min_score']));
             })
-            ->when(!empty($validated['skill']), function ($query) use ($validated): void {
+            ->when(!empty($validated['skill']), function ($q) use ($validated): void {
                 $needle = strtolower((string) $validated['skill']);
-                $query->whereHas('applicant.skills', fn ($skillQuery) => $skillQuery->whereRaw('LOWER(name) like ?', ['%' . $needle . '%']));
+                $q->whereHas('applicant.skills', fn ($skillQuery) => $skillQuery->whereRaw('LOWER(name) like ?', ['%' . $needle . '%']));
             })
-            ->when(!empty($validated['education_level']), function ($query) use ($validated): void {
+            ->when(!empty($validated['education_level']), function ($q) use ($validated): void {
                 $needle = strtolower((string) $validated['education_level']);
-                $query->whereHas('applicant.educations', fn ($eduQuery) => $eduQuery->whereRaw('LOWER(level) like ?', ['%' . $needle . '%']));
+                $q->whereHas('applicant.educations', fn ($eduQuery) => $eduQuery->whereRaw('LOWER(level) like ?', ['%' . $needle . '%']));
             })
             ->orderByDesc(
                 AiScore::query()
@@ -174,7 +190,35 @@ class ApplicationController extends Controller
                     ->whereColumn('ai_scores.application_id', 'applications.id')
                     ->limit(1)
             )
-            ->paginate((int) $request->query('per_page', 20));
+            ->orderByDesc(
+                AiScore::query()
+                    ->select('fit_score')
+                    ->whereColumn('ai_scores.application_id', 'applications.id')
+                    ->limit(1)
+            )
+            ->orderBy('applications.applied_at')
+            ->orderBy('applications.id');
+
+        $perPage = (int) $request->query('per_page', 20);
+        $topN = (int) ($validated['top_n'] ?? 0);
+
+        if ($topN > 0) {
+            // Cap the whole ranked pool to the recruiter-chosen top N before paginating —
+            // paginate() always overrides any prior ->limit() with its own, so the pool has
+            // to be fetched and paginated manually to actually cap the total, not just the page.
+            $topApplications = $query->take($topN)->get();
+            $page = (int) $request->query('page', 1);
+
+            $applications = new LengthAwarePaginator(
+                $topApplications->forPage($page, $perPage)->values(),
+                $topApplications->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        } else {
+            $applications = $query->paginate($perPage);
+        }
 
         return response()->json($applications);
     }

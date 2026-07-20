@@ -61,6 +61,11 @@
                 <textarea name="bio" rows="4" class="w-full rounded-xl border border-border px-3 py-2">{{ old('bio', $applicant->bio) }}</textarea>
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-muted mb-1">GPA (0.00 - 4.00 scale)</label>
+                <input type="number" step="0.01" min="0" max="4" name="gpa" value="{{ old('gpa', $applicant->gpa) }}" class="w-full rounded-xl border border-border px-3 py-2" />
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <label class="block text-sm font-medium text-muted mb-1">CV (PDF/DOCX)</label>
@@ -85,6 +90,7 @@
             <div class="flex justify-between"><dt class="text-muted">Experience Records</dt><dd class="font-semibold">{{ $applicant->experiences->count() }}</dd></div>
             <div class="flex justify-between"><dt class="text-muted">Certifications</dt><dd class="font-semibold">{{ $applicant->certificates->count() }}</dd></div>
             <div class="flex justify-between"><dt class="text-muted">Skills</dt><dd class="font-semibold">{{ $applicant->skills->count() }}</dd></div>
+            <div class="flex justify-between"><dt class="text-muted">GPA</dt><dd class="font-semibold">{{ $applicant->gpa ?? 'N/A' }}</dd></div>
             <div class="flex justify-between"><dt class="text-muted">CV Uploaded</dt><dd class="font-semibold">{{ $applicant->cv_path ? 'Yes' : 'No' }}</dd></div>
         </dl>
 

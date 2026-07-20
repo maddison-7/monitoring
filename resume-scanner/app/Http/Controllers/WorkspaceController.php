@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Throwable;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -138,7 +139,9 @@ class WorkspaceController extends Controller
         try {
             $fileHash = hash_file('sha256', (string) $file->getRealPath()) ?: null;
 
+            /** @var JobPosting $jobPosting */
             $existingDuplicate = CandidateProfile::query()
+                /** @var JobPosting $jobPosting */
                 ->where('job_posting_id', $jobPosting->id)
                 ->where('user_id', $userId)
                 ->when($fileHash !== null, function ($query) use ($fileHash) {
@@ -174,6 +177,7 @@ class WorkspaceController extends Controller
                 ]);
 
                 $scoreRecommendation = (string) ($scoreResult['recommendation'] ?? 'Review');
+                /** @var CandidateProfile $created */
                 return CandidateProfile::query()->create([
                     'job_posting_id' => $jobPosting->id,
                     'user_id' => $userId,
@@ -271,6 +275,7 @@ class WorkspaceController extends Controller
 
     public function updateJobDescription(Request $request, JobPosting $jobPosting): RedirectResponse
     {
+        /** @var JobPosting $jobPosting */
         if ((int) $jobPosting->user_id !== (int) $request->user()->id) {
             abort(403, 'You are not authorized to update this job description.');
         }
@@ -437,6 +442,7 @@ class WorkspaceController extends Controller
 
         $candidate->loadMissing('jobPosting');
 
+        /** @var CandidateProfile $candidate */
         $screening = (array) data_get($candidate->parsed_json, 'screening', []);
         $scoreBreakdown = (array) data_get($screening, 'score_breakdown', []);
 
@@ -484,6 +490,7 @@ class WorkspaceController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $request->user()->id],
+                'locale' => ['nullable', 'string', Rule::in(array_keys(config('app.supported_locales')))],
                 'profile_picture' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
                 'profilePictureInput' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
                 'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
@@ -520,6 +527,11 @@ class WorkspaceController extends Controller
                 // Store new profile picture
                 $path = $request->file($uploadField)->store('profiles', 'public');
                 $user->profile_picture = $path;
+            }
+
+            if (!empty($validated['locale'])) {
+                $user->locale = $validated['locale'];
+                session(['locale' => $validated['locale']]);
             }
 
             $user->save();

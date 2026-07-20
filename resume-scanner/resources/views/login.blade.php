@@ -1,28 +1,28 @@
 @extends('layouts.auth')
 
 @php
-    $pageTitle = 'Login';
+    $pageTitle = __('messages.login');
     $hideTopNavAuthLinks = true;
-    $eyebrow = 'Welcome back';
-    $headline = 'Sign in to your role workspace.';
-    $intro = 'Applicant, Recruiter, and Admin each have different access and workflows. Use the same login form with your role account.';
+    $eyebrow = __('messages.welcome_back');
+    $headline = __('messages.sign_in_to_your_role_workspace');
+    $intro = __('messages.account_access_intro');
     $highlights = [
-        ['title' => 'Applicant login', 'description' => 'Apply for jobs, track your progress, and follow interview and offer updates.'],
-        ['title' => 'Recruiter login', 'description' => 'Create vacancies, shortlist candidates, schedule interviews, and manage hiring stages.'],
-        ['title' => 'Admin login', 'description' => 'Manage users, oversee system settings, governance, security, and audit operations.'],
+        ['title' => __('messages.applicant_login'), 'description' => __('messages.applicant_login_desc')],
+        ['title' => __('messages.recruiter_login'), 'description' => __('messages.recruiter_login_desc')],
+        ['title' => __('messages.admin_login'), 'description' => __('messages.admin_login_desc')],
     ];
 @endphp
 
 @section('auth-nav')
-    <a href="{{ route('login') }}" class="rounded-full px-4 py-2 text-slateSoft hover:bg-white hover:text-ink transition">Login</a>
-    <a href="{{ route('register') }}" class="rounded-full px-4 py-2 bg-blueDeep text-white shadow-soft hover:bg-blue-700 transition">Create account</a>
+    <a href="{{ route('login') }}" class="rounded-full px-4 py-2 text-slateSoft hover:bg-white hover:text-ink transition">{{ __('messages.login') }}</a>
+    <a href="{{ route('register') }}" class="rounded-full px-4 py-2 bg-blueDeep text-white shadow-soft hover:bg-blue-700 transition">{{ __('messages.create_account') }}</a>
 @endsection
 
 @section('auth-card')
     <div class="mb-7">
-        <div class="inline-flex rounded-full bg-blueSoft px-3 py-1 text-xs font-semibold text-blueDeep">Account access</div>
-        <h2 class="mt-4 font-display text-3xl font-bold text-ink">Sign in</h2>
-        <p class="mt-2 text-sm text-slateSoft">Sign in using your Applicant, Recruiter, or Admin account credentials.</p>
+        <div class="inline-flex rounded-full bg-blueSoft px-3 py-1 text-xs font-semibold text-blueDeep">{{ __('messages.account_access') }}</div>
+        <h2 class="mt-4 font-display text-3xl font-bold text-ink">{{ __('messages.sign_in') }}</h2>
+        <p class="mt-2 text-sm text-slateSoft">{{ __('messages.account_access_intro') }}</p>
     </div>
 
     @if ($errors->any() || session('error'))
@@ -35,7 +35,7 @@
         @csrf
 
         <div>
-            <label for="email" class="mb-2 block text-sm font-medium text-ink">Email address</label>
+            <label for="email" class="mb-2 block text-sm font-medium text-ink">{{ __('messages.email_address') }}</label>
             <input
                 type="email"
                 id="email"
@@ -49,7 +49,7 @@
         </div>
 
         <div>
-            <label for="password" class="mb-2 block text-sm font-medium text-ink">Password</label>
+            <label for="password" class="mb-2 block text-sm font-medium text-ink">{{ __('messages.password') }}</label>
             <div class="relative">
                 <input
                     type="password"
@@ -60,21 +60,21 @@
                     required
                     class="w-full rounded-2xl border border-line bg-paper px-4 py-3 pr-16 text-sm text-ink outline-none transition focus:border-blueDeep focus:bg-white"
                 />
-                <button type="button" id="togglePwd" class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-blueDeep">Show</button>
+                <button type="button" id="togglePwd" class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-blueDeep">{{ __('messages.show') }}</button>
             </div>
         </div>
 
         <div class="flex items-center justify-between gap-3 text-sm">
             <label class="flex items-center gap-2 text-slateSoft">
                 <input type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }} class="h-4 w-4 rounded border-line text-blueDeep focus:ring-blueDeep" />
-                Remember me
+                {{ __('messages.remember_me') }}
             </label>
 
-            <a href="{{ route('password.request') }}" class="text-blueDeep hover:underline">Forgot password?</a>
+            <a href="{{ route('password.request') }}" class="text-blueDeep hover:underline">{{ __('messages.forgot_password') }}</a>
         </div>
 
         <button type="submit" id="loginBtn" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-blueDeep px-5 py-3.5 text-sm font-semibold text-white shadow-soft transition hover:bg-blue-700">
-            <span id="btnText">Sign in</span>
+            <span id="btnText">{{ __('messages.sign_in') }}</span>
             <svg id="btnSpinner" class="hidden h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="white" stroke-width="4"></circle>
                 <path class="opacity-75" fill="white" d="M4 12a8 8 0 018-8v8z"></path>
@@ -83,8 +83,8 @@
     </form>
 
     <div class="mt-6 text-center text-sm text-slateSoft">
-        New here?
-        <a href="{{ route('register') }}" class="font-semibold text-blueDeep hover:underline">Create an account</a>
+        {{ __('messages.new_here') }}
+        <a href="{{ route('register') }}" class="font-semibold text-blueDeep hover:underline">{{ __('messages.create_an_account') }}</a>
     </div>
 @endsection
 

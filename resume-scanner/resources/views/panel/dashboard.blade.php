@@ -11,9 +11,15 @@
                 </div>
 
                 <div class="rounded-2xl border border-border bg-slate-50 px-5 py-4">
-                    <div class="text-xs uppercase tracking-[0.16em] text-muted">Current user</div>
+                    <div class="text-xs uppercase tracking-[0.16em] text-muted">{{ __('messages.current_user') }}</div>
                     <div class="mt-2 font-semibold text-text">{{ $user->name }}</div>
                     <div class="text-sm text-muted">{{ $user->email }}</div>
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span class="text-xs uppercase tracking-[0.16em] text-muted">{{ __('messages.language') }}</span>
+                        <a href="{{ route('locale.switch', app()->getLocale() === 'en' ? 'sw' : 'en') }}" class="inline-flex items-center justify-center rounded-full border border-border bg-white px-4 py-2 text-sm font-semibold text-text transition hover:bg-slate-100">
+                            {{ app()->getLocale() === 'en' ? __('messages.switch_to_swahili') : __('messages.switch_to_english') }}
+                        </a>
+                    </div>
                 </div>
             </div>
         </section>
